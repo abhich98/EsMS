@@ -1,0 +1,53 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+*.egg-info/
+dist/
+build/
+*.csv
+*.xlsx
+*.ipynb_checkpoints/
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+README.md
+INIT_PLAN.md
+docs/
+
+# Examples and tests
+examples/
+tests/
+scripts/
+
+# Data files
+data/
+*.json
+!pyproject.toml
+
+# Lock files (include in image)
+# uv.lock is included for reproducible builds

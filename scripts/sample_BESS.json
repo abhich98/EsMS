@@ -1,0 +1,24 @@
+[
+    {
+        "id": "battery_1",
+        "capacity": 250.0,
+        "max_charge": 65.0,
+        "max_discharge": 65.0,
+        "charge_efficiency": 0.95,
+        "discharge_efficiency": 0.95,
+        "initial_soc": 50.0,
+        "min_soc": 15.0,
+        "max_soc": 215.0
+    },
+    {
+        "id": "battery_2",
+        "capacity": 300.0,
+        "max_charge": 100.0,
+        "max_discharge": 100.0,
+        "charge_efficiency": 0.93,
+        "discharge_efficiency": 0.93,
+        "initial_soc": 75.0,
+        "min_soc": 25.0,
+        "max_soc": 250.0
+    }
+]

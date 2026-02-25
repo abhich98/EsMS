@@ -17,7 +17,7 @@ class SolverConfig(BaseModel):
     )
     verbose: bool = Field(default=False, description="Show solver output")
     opts: Optional[dict] = Field(
-        default=None, description="Additional solver options as a dictionary"
+        default={}, description="Additional solver options as a dictionary"
     )
 
     @field_validator("optimization_type")

@@ -33,11 +33,12 @@ RUN pip install --no-cache-dir uv
 # Copy dependency files
 COPY pyproject.toml uv.lock* ./
 
+# Copy application code and metadata
+COPY README.md ./
+COPY esms/ esms/
+
 # Install Python dependencies
 RUN uv pip install --system --no-cache -e .
-
-# Copy application code
-COPY esms/ esms/
 
 # Create data directory for potential file operations
 RUN mkdir -p /app/data

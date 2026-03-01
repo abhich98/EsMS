@@ -131,18 +131,19 @@ Solver configuration:
 {
   "solver": "scip",
   "timestep_hours": 1.0,
-  "optimization_type": "lp",
-  "verbose": false
+  "verbose": false,
+  "opts": {
+    "mip_gap": 0.01,
+    "time_limit": 60
+  }
 }
 ```
 
 **Fields:**
 - `solver` (string): Solver name - `scip` (default), `glpk`, `cbc`
 - `timestep_hours` (float): Duration of each timestep in hours (default: 1.0)
-- `optimization_type` (string): `lp` (fast, recommended) or `milp` (slower, more accurate)
 - `verbose` (bool): Show solver output (default: false)
-
----
+- `opts` (dict): Additional solver options (e.g., `mip_gap`, `time_limit`)
 
 ## 📤 Output Format
 

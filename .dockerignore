@@ -35,9 +35,7 @@ build/
 .gitignore
 
 # Documentation
-README.md
 INIT_PLAN.md
-docs/
 
 # Examples and tests
 examples/

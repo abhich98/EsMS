@@ -12,21 +12,10 @@ class SolverConfig(BaseModel):
     timestep_hours: float = Field(
         default=1.0, gt=0, description="Duration of each timestep in hours"
     )
-    optimization_type: str = Field(
-        default="lp", description="Optimization type: 'lp' or 'milp'"
-    )
     verbose: bool = Field(default=False, description="Show solver output")
     opts: Optional[dict] = Field(
         default={}, description="Additional solver options as a dictionary"
     )
-
-    @field_validator("optimization_type")
-    @classmethod
-    def validate_optimization_type(cls, v):
-        """Validate optimization type."""
-        if v.lower() not in ["lp", "milp"]:
-            raise ValueError("optimization_type must be 'lp' or 'milp'")
-        return v.lower()
 
     @field_validator("solver")
     @classmethod

@@ -82,7 +82,7 @@ async def optimize(
         config_content = await config_json.read() if config_json else None
         config = IOService.parse_config_json(config_content)
         logger.info(
-            f"Configuration: solver={config.solver}, type={config.optimization_type}"
+            f"Configuration: solver={config.solver}"
         )
 
         # Run optimization

@@ -36,16 +36,16 @@ def main():
 
     # get date from date index
     date = forecast_df.iloc[day_idx * 24]['Date'].date()
-    num_days = 365
+    num_days = 3
     forecast_df_day = forecast_df.iloc[day_idx * 24:(day_idx + num_days) * 24]
     logger.info("=" * 60)
-    logger.info("EsMS Energy Optimizer - Day-Ahead Optimization")
+    logger.info("EsMS Energy Optimizer - Deterministic Optimization")
     logger.info(f"Selected day: {date} (index {day_idx})")
     logger.info(f"Number of batteries in BESS: {len(batteries)}")
     logger.info("=" * 60)
     
     # Define batteries
-    batteries = [Battery.from_dict(bat) for bat in batteries]
+    batteries = [Battery(**bat) for bat in batteries]
     logger.info(f"Batteries configured:")
     for battery in batteries:
         logger.info(f"{battery}")

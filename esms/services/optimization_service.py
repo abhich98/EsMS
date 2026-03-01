@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 import pandas as pd
 
 from esms.models import Battery
-from esms.optimization import EnergyOptimizer, EnergyOptimizerLP
+from esms.optimization import EnergyOptimizer
 from esms.api.schemas import SolverConfig
 
 logger = logging.getLogger(__name__)
@@ -35,24 +35,14 @@ class OptimizationService:
             RuntimeError: If optimization fails
         """
         logger.info(
-            f"Starting {config.optimization_type.upper()} optimization with {config.solver}"
+            f"Starting optimization with {config.solver}"
         )
         logger.info(f"Number of batteries: {len(batteries)}")
         logger.info(f"Number of timesteps: {len(forecasts['pv'])}")
 
-        # Select optimizer based on type
-        if config.optimization_type == "lp":
-            optimizer = EnergyOptimizerLP
-        elif config.optimization_type == "milp":
-            optimizer = EnergyOptimizer
-        else:
-            raise ValueError(
-                f"Unknown optimization type: {config.optimization_type}"
-            )
-
         try:
             # Initialize optimizer
-            optimizer = optimizer(
+            optimizer = EnergyOptimizer(
                 batteries=batteries,
                 load_forecast=forecasts["load"],
                 pv_forecast=forecasts["pv"],

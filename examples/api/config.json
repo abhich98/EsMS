@@ -1,6 +1,5 @@
 {
   "solver": "scip",
   "timestep_hours": 1.0,
-  "optimization_type": "milp",
   "verbose": false
 }

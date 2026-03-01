@@ -2,7 +2,9 @@
 
 Implementation of an energy management system (EMS) for optimizing the operation of a multi-asset entity with PV generation, battery storage, and grid interaction. 
 
-While, there is a REST API for accessing the optimization service (eg: day-ahed scheduling), the main idea is to test solvers and compare **determinisitic optimization** vs **scenario-based stochastic optimization**.
+While, this project provides a Dockerized REST API for accessing the optimization service (example for day-ahead scheduling, read [API docs](./API_README.md)), the main objective is to test different solvers and compare **deterministic optimization** vs **scenario-based stochastic optimization**.
+
+there is a docker image and REST API for accessing the optimization service (eg: day-ahed scheduling), the main idea is to test solvers and compare **determinisitic optimization** vs **scenario-based stochastic optimization**.
 
 ##  Data Sources:
 
@@ -51,6 +53,5 @@ esms/
 - **Trade-off**: Uses geometric mean efficiency
 
 ### MILP (Mixed-Integer Linear Programming)
-- **Speed**: Slower 🐢
-- **Use case**: Short-term optimization (hours, days, also months or longer with fast solvers like SCIP)
+- **Use case**: Short-term optimization (hours, days, use glpk), long-term optimization is also possible (months or longer with fast solvers like SCIP)
 - **Benefit**: Exact efficiency modeling, prevents simultaneous charge/discharge

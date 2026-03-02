@@ -12,7 +12,7 @@ import json
 import datetime
 
 from esms.models import Battery
-from esms.optimization import EnergyOptimizer, EnergyOptimizerLP
+from esms.optimization import EnergyOptimizer
 from esms.utils import get_available_pyomo_solvers
 
 # Setup logging
@@ -36,7 +36,7 @@ def main():
 
     # get date from date index
     date = forecast_df.iloc[day_idx * 24]['Date'].date()
-    num_days = 3
+    num_days = 1
     forecast_df_day = forecast_df.iloc[day_idx * 24:(day_idx + num_days) * 24]
     logger.info("=" * 60)
     logger.info("EsMS Energy Optimizer - Deterministic Optimization")
@@ -60,13 +60,13 @@ def main():
     logger.info(f"Price range: {price_forecast.min():.3f} - {price_forecast.max():.3f} EUR/kWh")
     
     available_solvers = get_available_pyomo_solvers()
-    solver_to_use = available_solvers[0] if len(available_solvers) else "ipopt"
+    solver_to_use = available_solvers[0] if len(available_solvers) else "glpk"
     logger.info(f"Using solver: {solver_to_use}")
     solver_args = {}
     if solver_to_use == "scip":
         solver_args = {"solver_io": "nl"}
     
-    optimizer = EnergyOptimizerLP(
+    optimizer = EnergyOptimizer(
         batteries=batteries,
         load_forecast=load_forecast,
         pv_forecast=pv_forecast,
@@ -121,7 +121,15 @@ def main():
         # Convert to DataFrame for detailed analysis
         df = optimizer.results_to_dataframe(results)
         logger.info(f"First 5 timesteps:")
-        logger.info(df.head())
+        logger.info(df.head(5))
+
+        # Battery SOC
+        logger.info(f"Battery SOC over time:")
+        logger.info(df[[col for col in df.columns if 'battery' in col and 'soc' in col]])
+
+        # Grid import/export
+        logger.info(f"Grid import/export over time:")
+        logger.info(df[['grid_import', 'grid_export']])
         
         logger.info("=" * 60)
         logger.info("Optimization completed successfully!")

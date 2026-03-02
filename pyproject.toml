@@ -24,6 +24,8 @@ dependencies = [
 [dependency-groups]
 dev = [
     "black>=26.1.0",
+    "pypsa>=1.1.2",
+    "pytest>=9.0.2",
 ]
 
 [tool.uv.build-backend]

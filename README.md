@@ -45,13 +45,6 @@ esms/
 
 ---
 
-## 📊 Optimization Types/Methods
-
-### LP (Linear Programming)
-- **Speed**: Very fast ⚡
-- **Use case**: Long-term optimization (weeks, months, years)
-- **Trade-off**: Uses geometric mean efficiency
-
-### MILP (Mixed-Integer Linear Programming)
+## MILP (Mixed-Integer Linear Programming)
 - **Use case**: Short-term optimization (hours, days, use glpk), long-term optimization is also possible (months or longer with fast solvers like SCIP)
 - **Benefit**: Exact efficiency modeling, prevents simultaneous charge/discharge

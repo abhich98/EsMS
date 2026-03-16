@@ -135,11 +135,11 @@ def test_data():
     forecast_df = pd.read_excel('data/Dataset.xlsx', sheet_name='2023 data', usecols='A:F', nrows=8762)
     
     # Load battery configuration
-    with open('scripts/sample_BESS.json', 'r') as f:
+    with open('examples/sample_BESS.json', 'r') as f:
         batteries = json.load(f)
     
     # Select a specific day for reproducibility
-    day_idx = 1
+    day_idx = 123
     date = forecast_df.iloc[day_idx * 24]['Date'].date()
     forecast_df_day = forecast_df.iloc[day_idx * 24:(day_idx + 1) * 24]
     
@@ -209,8 +209,6 @@ def test_esms_vs_pypsa_optimization(test_data):
     # This accounts for potential solver differences and numerical precision
     assert abs(esms_cost - pypsa_cost) < 1.0 or relative_diff < 0.01, \
         f"Optimization results differ significantly: EsMS={esms_cost:.2f} EUR, PyPSA={pypsa_cost:.2f} EUR"
-    
-    logger.info("✓ Test passed: EsMS and PyPSA produce consistent results")
 
 
 if __name__ == "__main__":

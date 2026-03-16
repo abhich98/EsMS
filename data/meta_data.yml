@@ -1,0 +1,12 @@
+seasons:
+- Winter
+- Spring
+- Summer
+- Autumn
+
+num_scenarios:
+- 3
+- 9
+- 12
+- 27
+- 50

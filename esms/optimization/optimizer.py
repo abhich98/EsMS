@@ -165,6 +165,12 @@ class EnergyOptimizer(BaseEnergyOptimizer):
             doc="Charge state binary (1=can charge, 0=can discharge)",
         )
 
+        model.v = Var(
+            model.T,
+            domain=Binary,
+            doc="Grid interaction binary (1=can import, 0=can export)",
+        )
+
         # Objective: Minimize total cost
         def objective_rule(model):
             return sum(
@@ -235,6 +241,16 @@ class EnergyOptimizer(BaseEnergyOptimizer):
             return model.discharge[b, t] <= model.MaxDischarge[b] * (1 - model.u[b, t])
 
         model.discharge_limit = Constraint(model.B, model.T, rule=discharge_limit_rule)
+
+        # 5. Grid interaction limits with binary constraint (no simultaneous import/export)
+        def grid_import_limit_rule(model, t):
+            return model.grid_import[t] <= 1e6 * model.v[t]  # Large constant
+
+        def grid_export_limit_rule(model, t):
+            return model.grid_export[t] <= 1e6 * (1 - model.v[t])  # Large constant
+
+        model.grid_import_limit = Constraint(model.T, rule=grid_import_limit_rule)
+        model.grid_export_limit = Constraint(model.T, rule=grid_export_limit_rule)
 
         self.model = model
         logger.info(

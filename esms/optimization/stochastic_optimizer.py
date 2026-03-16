@@ -45,6 +45,7 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
         pv_scenarios: np.ndarray,  # Shape: (n_scenarios, n_timesteps)
         price_forecast: Sequence[float],  # Forecasted prices (known)
         price_rt_scenarios: np.ndarray,  # Real-time prices per scenario (n_scenarios, n_timesteps)
+        export_price_rt_scenarios: Optional[np.ndarray] = None,  # Real-time export prices per scenario (n_scenarios, n_timesteps)
         scenario_probabilities: Optional[Sequence[float]] = None,
         timestep_hours: float = 1.0,
         solver: str = "glpk",
@@ -58,6 +59,7 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
             pv_scenarios: PV generation scenarios (kW) - shape (n_scenarios, n_timesteps)
             price_forecast: Forecasted/Ahead electricity prices (EUR/kWh) for each timestep
             price_rt_scenarios: Real-time electricity prices per scenario (EUR/kWh) - shape (n_scenarios, n_timesteps)
+            export_price_rt_scenarios: Real-time export prices per scenario (EUR/kWh) - shape (n_scenarios, n_timesteps)
             scenario_probabilities: Probability of each scenario (defaults to uniform)
             timestep_hours: Duration of each timestep in hours (default: 1.0)
             solver: Solver to use ('glpk', 'cbc', 'gurobi', etc.)
@@ -66,6 +68,10 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
         self.load_scenarios = np.array(load_scenarios)
         self.pv_scenarios = np.array(pv_scenarios)
         self.price_rt_scenarios = np.array(price_rt_scenarios)
+        if export_price_rt_scenarios is None:
+            self.export_price_rt_scenarios = np.zeros_like(self.price_rt_scenarios)  # Assuming no export price for simplicity
+        else:
+            self.export_price_rt_scenarios = np.array(export_price_rt_scenarios)
         
         # Validate scenario dimensions
         if self.load_scenarios.ndim != 2:
@@ -74,6 +80,8 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
             raise ValueError("pv_scenarios must have same shape as load_scenarios")
         if self.price_rt_scenarios.shape != self.load_scenarios.shape:
             raise ValueError("price_rt_scenarios must have same shape as load_scenarios")
+        if self.export_price_rt_scenarios.shape != self.load_scenarios.shape:
+            raise ValueError("export_price_rt_scenarios must have same shape as load_scenarios")
         
         self.n_scenarios, self.n_timesteps = self.load_scenarios.shape
         
@@ -92,14 +100,10 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
         if len(self.price_ahead) != self.n_timesteps:
             raise ValueError("price_ahead must have same length as timesteps")
         
-        # Use mean load and PV for base class initialization (for compatibility)
-        load_forecast = self.load_scenarios.mean(axis=0)
-        pv_forecast = self.pv_scenarios.mean(axis=0)
-        
         super().__init__(
             batteries=batteries,
-            load_forecast=load_forecast,
-            pv_forecast=pv_forecast,
+            load_forecast=np.zeros(self.n_timesteps),  # Placeholder, actual load is scenario-dependent
+            pv_forecast=np.zeros(self.n_timesteps),  # Placeholder, actual PV is scenario-dependent
             price_forecast=price_forecast,  # Use forecasted prices as base forecast
             export_price_forecast=None,
             timestep_hours=timestep_hours,
@@ -149,6 +153,14 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
             initialize=init_price_rt,
             doc="Real-time electricity price (EUR/kWh)"
         )
+
+        def init_export_price_rt(model, s, t):
+            return self.export_price_rt_scenarios[s, t]
+        model.ExportPriceRT = Param(
+            model.S, model.T,
+            initialize=init_export_price_rt,
+            doc="Real-time electricity export price (EUR/kWh)"
+        )
         
         def init_prob(model, s):
             return self.scenario_probabilities[s]
@@ -194,17 +206,23 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
         # =================================================================
         
         # First-stage decision (scenario-independent)
-        model.P_ahead = Var(
+        model.grid_import_ahead = Var(
             model.T, 
             domain=NonNegativeReals, 
             doc="Forecasted/Ahead market purchase (kW)"
         )
         
         # Second-stage decisions (scenario-dependent)
-        model.P_RT = Var(
+        model.grid_import_rt = Var(
             model.S, model.T,
             domain=NonNegativeReals, 
-            doc="Real-time market balancing (kW), set to be positive, negative values are not permitted here as they would represent selling back to the grid which is not considered in this model"
+            doc="Real-time market balancing (kW), set to be positive, that is real-time purchase."
+        )
+
+        model.grid_export_rt = Var(
+            model.S, model.T,
+            domain=NonNegativeReals,
+            doc="Real-time market export (kW), set to be positive, negative values, that is real-time sales. This variable if for testing and to stablize optimization. The export price is set to zero for now."
         )
         
         model.charge = Var(
@@ -232,6 +250,13 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
             doc="Charge state binary (1=can charge, 0=can discharge)",
         )
 
+        # Binary variable for grid import/export state (MILP constraint)
+        model.v = Var(
+            model.S, model.T,
+            domain=Binary,
+            doc="Grid import/export state binary (1=can import, 0=can export)",
+        )
+
         # =================================================================
         # OBJECTIVE FUNCTION
         # =================================================================
@@ -239,13 +264,13 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
         def objective_rule(model):
             # First-stage cost: ahead market
             ahead_cost = sum(
-                model.PriceAhead[t] * model.P_ahead[t] * model.dt
+                model.PriceAhead[t] * model.grid_import_ahead[t] * model.dt
                 for t in model.T
             )
             
             # Second-stage expected cost: real-time balancing
             rt_expected_cost = sum(
-                model.Prob[s] * model.PriceRT[s, t] * model.P_RT[s, t] * model.dt
+                model.Prob[s] * (model.PriceRT[s, t] * model.grid_import_rt[s, t]  - model.ExportPriceRT[s, t] * model.grid_export_rt[s, t]) * model.dt
                 for s in model.S
                 for t in model.T
             )
@@ -264,8 +289,8 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
             total_charge = sum(model.charge[b, s, t] for b in model.B)
             
             return (
-                model.P_ahead[t] + model.P_RT[s, t] + model.PV[s, t] + total_discharge
-                == model.Load[s, t] + total_charge
+                model.grid_import_ahead[t] + model.grid_import_rt[s, t] + model.PV[s, t] + total_discharge
+                == model.Load[s, t] + model.grid_export_rt[s, t] + total_charge
             )
 
         model.power_balance = Constraint(
@@ -337,6 +362,24 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
             doc="Maximum discharge power constraint"
         )
 
+        # Grid import/export limits
+        def grid_import_rule(model, s, t):
+            return model.grid_import_ahead[t] + model.grid_import_rt[s, t] <= 1e6 * model.v[s, t]  # Large constant to allow full range when v=1
+        model.grid_import_limit = Constraint(
+            model.S, model.T,
+            rule=grid_import_rule,
+            doc="Grid import limit constraint"
+        )
+
+        def grid_export_rule(model, s, t):
+            return model.grid_export_rt[s, t] <= 1e6 * (1 - model.v[s, t])  # Allow export when v=0
+        model.grid_export_limit = Constraint(
+            model.S, model.T,
+            rule=grid_export_rule,
+            doc="Grid export limit constraint"
+        )
+
+        # Store model for later use
         self.model = model
         logger.info(
             f"Stochastic model built: {self.n_scenarios} scenarios, "
@@ -354,7 +397,7 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
         model = self.model
 
         # First-stage decision (Ahead market)
-        p_ahead = [value(model.P_ahead[t]) for t in model.T]
+        grid_import_ahead = [value(model.grid_import_ahead[t]) for t in model.T]
         
         # Second-stage decisions - extract for each scenario
         scenario_results = []
@@ -369,17 +412,20 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
                 }
                 battery_schedules.append(schedule)
             
-            p_rt = [value(model.P_RT[s, t]) for t in model.T]
+            grid_import_rt = [value(model.grid_import_rt[s, t]) for t in model.T]
+            grid_export_rt = [value(model.grid_export_rt[s, t]) for t in model.T]
             
             scenario_results.append({
                 "scenario": s,
                 "probability": self.scenario_probabilities[s],
                 "batteries": battery_schedules,
-                "P_RT": p_rt,
+                "grid_import_rt": grid_import_rt,
+                "grid_export_rt": grid_export_rt,
             })
         
         # Compute expected (probability-weighted) second-stage variables
-        expected_p_rt = np.zeros(self.n_timesteps)
+        expected_grid_import_rt = np.zeros(self.n_timesteps)
+        expected_grid_export_rt = np.zeros(self.n_timesteps)
         expected_batteries = []
         
         for b in model.B:
@@ -402,30 +448,20 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
         
         for s in model.S:
             prob = self.scenario_probabilities[s]
-            expected_p_rt += prob * np.array([value(model.P_RT[s, t]) for t in model.T])
-        
-        # Calculate grid import/export from ahead and expected real-time
-        grid_import = []
-        grid_export = []
-        for t in model.T:
-            net_grid = p_ahead[t] + expected_p_rt[t]
-            if net_grid >= 0:
-                grid_import.append(net_grid)
-                grid_export.append(0.0)
-            else:
-                grid_import.append(0.0)
-                grid_export.append(-net_grid)
+            expected_grid_import_rt += prob * np.array([value(model.grid_import_rt[s, t]) for t in model.T])
+            expected_grid_export_rt += prob * np.array([value(model.grid_export_rt[s, t]) for t in model.T])
+
         
         # Calculate total cost
         total_cost = value(model.total_cost)
 
         results = {
-            "P_ahead": p_ahead,  # First-stage decision
             "scenarios": scenario_results,  # All scenario results
-            "expected_P_RT": expected_p_rt.tolist(),
             "batteries": expected_batteries,  # Expected battery schedules
-            "grid_import": grid_import,
-            "grid_export": grid_export,
+            "grid_import": (np.array(grid_import_ahead) + expected_grid_import_rt).tolist(),
+            "grid_import_ahead": grid_import_ahead.tolist(),  # First-stage decision
+            "expected_grid_import_rt": expected_grid_import_rt.tolist(),
+            "grid_export": expected_grid_export_rt.tolist(),
             "total_cost": total_cost,
             "solver_status": str(self.results.solver.termination_condition),
             "objective_value": total_cost,
@@ -442,7 +478,7 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
         """Add battery-specific columns using expected values."""
         # Add ahead purchase
         data["P_ahead"] = results["P_ahead"]
-        data["expected_P_RT"] = results["expected_P_RT"]
+        data["expected_grid_import_rt"] = results["expected_grid_import_rt"]
         
         # Add expected battery schedules
         for b_result in results["batteries"]:

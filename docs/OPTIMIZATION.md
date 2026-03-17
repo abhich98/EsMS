@@ -8,6 +8,8 @@ This document describes the mathematical models implemented in:
 All powers are in kW, energy in kWh, prices in EUR/kWh, and $\Delta t$ in hours.
 
 ## 1) Deterministic MILP (`optimizer.py`)
+Assming perfect foresight of load, PV, and prices, we solve a deterministic MILP to minimize total energy cost over the horizon with battery and grid decisions. The formulation is as follows:
+
 
 ### Sets
 
@@ -101,7 +103,9 @@ This prevents simultaneous import and export in each timestep (up to big-M logic
 
 ## 2) Two-stage stochastic MILP (`stochastic_optimizer.py`)
 
-In general, industries use stochastic optimization to handle uncertainty in load, PV, and prices. They typically buy in the day-ahead market (first-stage decision) and then adjust in real-time (second-stage recourse) based on actual conditions. To obtain the policy (decide the power to commit in the day-ahead market) for a given day, we solve a two-stage stochastic MILP with the following structure, we keep first-stage decisions scenario-independent and adapt second-stage recourse per scenario.
+In general, industries use **stochastic optimization** to handle uncertainty in load, PV, and prices. Traditionally, they buy power in the day-ahead market (first-stage decision) and then adjust in real-time (second-stage recourse) based on actual conditions. To obtain the policy (the power to commit in the day-ahead market) for a given day, we solve a two-stage stochastic MILP where we keep first-stage decisions scenario-independent and adapt second-stage recourse per scenario.
+
+**This is based on my understanding. I do not know whether this is still practised and how modern approaches differ.**
 
 ### Sets
 
@@ -114,8 +118,8 @@ In general, industries use stochastic optimization to handle uncertainty in load
 - $L_{s,t}$: scenario load
 - $PV_{s,t}$: scenario PV
 - $\pi_t^{\text{ahead}}$: ahead-market import price (scenario-independent)
-- $\pi_{s,t}^{\text{rt}}$: real-time import price
-- $\pi_{s,t}^{\text{rt,exp}}$: real-time export price
+- $\pi_{s,t}^{\text{rt}}$: real-time import price for a scenario
+- $\pi_{s,t}^{\text{rt,exp}}$: real-time export price for a scenario (optional, can be 0 if not provided)
 - $p_s$: scenario probability, $\sum_s p_s = 1$
 - Battery parameters: $\overline{P}^{\text{ch}}_b, \overline{P}^{\text{dis}}_b, \eta_b^{\text{ch}}, \eta_b^{\text{dis}}, SOC_b^0, \underline{SOC}_b, \overline{SOC}_b$
 - $\Delta t$: timestep duration

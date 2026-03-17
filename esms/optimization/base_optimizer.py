@@ -150,12 +150,12 @@ class BaseEnergyOptimizer(ABC):
             DataFrame with timestep-indexed results
         """
         if results is None:
-            results = self.results
+            results = self._extract_results()
 
         if results is None:
             raise ValueError("No results available. Run solve() first.")
 
-        n_timesteps = len(self.pv_forecast)
+        n_timesteps = len(self.price_forecast)
 
         data: Dict[str, Any] = {
             "timestep": range(n_timesteps),

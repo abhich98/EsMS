@@ -9,6 +9,7 @@ Second-stage decisions (real-time balancing, battery operation) adapt to scenari
 import logging
 from typing import List, Dict, Any, Optional, Sequence
 import numpy as np
+import pandas as pd
 from pyomo.environ import (
     ConcreteModel,
     Set,
@@ -92,8 +93,8 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
             self.scenario_probabilities = np.array(scenario_probabilities)
             if len(self.scenario_probabilities) != self.n_scenarios:
                 raise ValueError("scenario_probabilities must match number of scenarios")
-            if not np.isclose(self.scenario_probabilities.sum(), 1.0):
-                raise ValueError("scenario_probabilities must sum to 1.0")
+            if not np.isclose(self.scenario_probabilities.sum(), 1.0, atol=1e-3):
+                raise ValueError("scenario_probabilities must sum to 1.0, but sums to %.4f" % self.scenario_probabilities.sum())
         
         # Day-ahead prices (known, scenario-independent)
         self.price_ahead = np.array(price_forecast)
@@ -458,10 +459,11 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
         results = {
             "scenarios": scenario_results,  # All scenario results
             "batteries": expected_batteries,  # Expected battery schedules
+            "price_ahead": self.price_ahead.tolist(),
             "grid_import": (np.array(grid_import_ahead) + expected_grid_import_rt).tolist(),
-            "grid_import_ahead": grid_import_ahead.tolist(),  # First-stage decision
+            "grid_import_ahead": grid_import_ahead,  # First-stage decision
             "expected_grid_import_rt": expected_grid_import_rt.tolist(),
-            "grid_export": expected_grid_export_rt.tolist(),
+            "expected_grid_export_rt": expected_grid_export_rt.tolist(),
             "total_cost": total_cost,
             "solver_status": str(self.results.solver.termination_condition),
             "objective_value": total_cost,
@@ -472,17 +474,69 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
 
         return results
 
+    def results_to_dataframe(self, results = None) -> pd.DataFrame:
+        """
+        Convert results to a pandas DataFrame for easy analysis.
+
+        Args:
+            results: Results dictionary from solve() (defaults to self.results)
+        Returns:
+            DataFrame with timestep-indexed results, including expected values across scenarios.
+        """
+        if results is None:
+            results = self._extract_results()
+
+        n_timesteps = len(self.price_ahead)
+        
+        data: Dict[str, Any] = {
+            "timestep": range(n_timesteps),
+            "price_ahead": results["price_ahead"],
+            "grid_import": results["grid_import"],
+            "grid_import_ahead": results["grid_import_ahead"],
+            "expected_grid_import_rt": results["expected_grid_import_rt"],
+            "expected_grid_export_rt": results["expected_grid_export_rt"],
+        }
+
+        self._add_battery_dataframe_columns(data, results)
+
+        df = pd.DataFrame(data)
+        df = df.set_index("timestep")
+
+        return df
+
     def _add_battery_dataframe_columns(
         self, data: Dict[str, Any], results: Dict[str, Any]
     ) -> None:
         """Add battery-specific columns using expected values."""
-        # Add ahead purchase
-        data["P_ahead"] = results["P_ahead"]
-        data["expected_grid_import_rt"] = results["expected_grid_import_rt"]
-        
-        # Add expected battery schedules
-        for b_result in results["batteries"]:
-            b_id = b_result["id"]
-            data[f"{b_id}_charge"] = b_result["charge"]
-            data[f"{b_id}_discharge"] = b_result["discharge"]
-            data[f"{b_id}_soc"] = b_result["soc"]
+        for b in results["batteries"]:
+            bat_id = b["id"]
+            data[f"expected_{bat_id}_charge"] = b["charge"]
+            data[f"expected_{bat_id}_discharge"] = b["discharge"]
+            data[f"expected_{bat_id}_soc"] = b["soc"]
+
+    def scenario_results_to_dataframe(self, results: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
+        """Convert scenario-specific results to a DataFrame for detailed analysis."""
+        if results is None:
+            results = self._extract_results()
+
+        scenario_dfs = []
+        n_timesteps = len(self.price_ahead)
+
+        for scenario_result in results["scenarios"]:
+            s = scenario_result["scenario"]
+            prob = scenario_result["probability"]
+            df = pd.DataFrame({
+                "timestep": range(n_timesteps),
+                "grid_import_rt": scenario_result["grid_import_rt"],
+                "grid_export_rt": scenario_result["grid_export_rt"],
+            })
+            for b in scenario_result["batteries"]:
+                bat_id = b["id"]
+                df[f"{bat_id}_charge"] = b["charge"]
+                df[f"{bat_id}_discharge"] = b["discharge"]
+                df[f"{bat_id}_soc"] = b["soc"]
+            df["scenario"] = s
+            df["probability"] = prob
+            scenario_dfs.append(df)
+
+        return pd.concat(scenario_dfs, ignore_index=True)

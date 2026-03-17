@@ -25,6 +25,7 @@ dependencies = [
 dev = [
     "black>=26.1.0",
     "ipykernel>=7.2.0",
+    "joblib>=1.5.3",
     "pypsa>=1.1.2",
     "pytest>=9.0.2",
 ]

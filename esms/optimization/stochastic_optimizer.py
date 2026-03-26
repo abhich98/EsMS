@@ -45,11 +45,10 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
         load_scenarios: np.ndarray,  # Shape: (n_scenarios, n_timesteps)
         pv_scenarios: np.ndarray,  # Shape: (n_scenarios, n_timesteps)
         price_forecast: Sequence[float],  # Forecasted prices (known)
-        price_rt_scenarios: np.ndarray,  # Real-time prices per scenario (n_scenarios, n_timesteps)
+        price_rt_scenarios: Optional[np.ndarray] = None,  # Real-time prices per scenario (n_scenarios, n_timesteps)
         export_price_rt_scenarios: Optional[np.ndarray] = None,  # Real-time export prices per scenario (n_scenarios, n_timesteps)
         scenario_probabilities: Optional[Sequence[float]] = None,
         timestep_hours: float = 1.0,
-        solver: str = "glpk",
     ):
         """
         Initialize the stochastic optimizer.
@@ -68,7 +67,15 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
         # Convert scenarios to numpy arrays
         self.load_scenarios = np.array(load_scenarios)
         self.pv_scenarios = np.array(pv_scenarios)
-        self.price_rt_scenarios = np.array(price_rt_scenarios)
+
+        # Day-ahead prices (known, scenario-independent)
+        self.price_ahead = np.array(price_forecast)
+
+        if price_rt_scenarios is None:
+            self.price_rt_scenarios = np.ones_like(self.load_scenarios) * np.max(self.price_ahead)  # Set to very high price if not provided to discourage real-time purchases
+        else:
+            self.price_rt_scenarios = np.array(price_rt_scenarios)
+
         if export_price_rt_scenarios is None:
             self.export_price_rt_scenarios = np.zeros_like(self.price_rt_scenarios)  # Assuming no export price for simplicity
         else:
@@ -85,6 +92,9 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
             raise ValueError("export_price_rt_scenarios must have same shape as load_scenarios")
         
         self.n_scenarios, self.n_timesteps = self.load_scenarios.shape
+
+        if len(self.price_ahead) != self.n_timesteps:
+            raise ValueError("price_ahead must have same length as timesteps")
         
         # Set scenario probabilities (uniform if not provided)
         if scenario_probabilities is None:
@@ -96,11 +106,6 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
             if not np.isclose(self.scenario_probabilities.sum(), 1.0, atol=1e-3):
                 raise ValueError("scenario_probabilities must sum to 1.0, but sums to %.4f" % self.scenario_probabilities.sum())
         
-        # Day-ahead prices (known, scenario-independent)
-        self.price_ahead = np.array(price_forecast)
-        if len(self.price_ahead) != self.n_timesteps:
-            raise ValueError("price_ahead must have same length as timesteps")
-        
         super().__init__(
             batteries=batteries,
             load_forecast=np.zeros(self.n_timesteps),  # Placeholder, actual load is scenario-dependent
@@ -108,7 +113,6 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
             price_forecast=price_forecast,  # Use forecasted prices as base forecast
             export_price_forecast=None,
             timestep_hours=timestep_hours,
-            solver=solver,
         )
 
     def build_model(self) -> ConcreteModel:
@@ -271,7 +275,10 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
             
             # Second-stage expected cost: real-time balancing
             rt_expected_cost = sum(
-                model.Prob[s] * (model.PriceRT[s, t] * model.grid_import_rt[s, t]  - model.ExportPriceRT[s, t] * model.grid_export_rt[s, t]) * model.dt
+                model.Prob[s] * (
+                    model.PriceRT[s, t] * model.grid_import_rt[s, t]  - 
+                    model.ExportPriceRT[s, t] * model.grid_export_rt[s, t]\
+                        ) * model.dt
                 for s in model.S
                 for t in model.T
             )

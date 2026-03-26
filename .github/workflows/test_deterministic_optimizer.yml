@@ -28,5 +28,7 @@ jobs:
               run: uv sync
 
             - name: Run tests
-              run: pytest scripts/test_deterministic_optimizer.py
+              run: |
+                source .venv/bin/activate
+                pytest scripts/test_deterministic_optimizer.py -v -s
             

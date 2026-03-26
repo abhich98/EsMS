@@ -49,11 +49,10 @@ class OptimizationService:
                 price_forecast=forecasts["price"],
                 export_price_forecast=forecasts["export_price"],
                 timestep_hours=config.timestep_hours,
-                solver=config.solver,
             )
 
             # Run optimization
-            results = optimizer.solve(verbose=config.verbose, **config.opts)
+            results = optimizer.solve(solver_name=config.solver, verbose=config.verbose, **config.opts)
 
             # Convert to DataFrame
             results_df = optimizer.results_to_dataframe(results)

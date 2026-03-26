@@ -43,7 +43,6 @@ class EnergyOptimizer(BaseEnergyOptimizer):
         price_forecast,
         export_price_forecast: Optional[Sequence[float]] = None,
         timestep_hours: float = 1.0,
-        solver: str = "glpk",
     ):
         """
         Initialize the optimizer.
@@ -64,7 +63,6 @@ class EnergyOptimizer(BaseEnergyOptimizer):
             price_forecast=price_forecast,
             export_price_forecast=export_price_forecast,
             timestep_hours=timestep_hours,
-            solver=solver,
         )
 
     def build_model(self) -> ConcreteModel:

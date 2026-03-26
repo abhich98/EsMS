@@ -29,7 +29,6 @@ class BaseEnergyOptimizer(ABC):
         price_forecast,
         export_price_forecast: Optional[Sequence[float]] = None,
         timestep_hours: float = 1.0,
-        solver: str = "glpk",
     ):
         self.batteries = batteries
         self.load_forecast = np.array(load_forecast)
@@ -41,7 +40,6 @@ class BaseEnergyOptimizer(ABC):
             else np.zeros_like(price_forecast)
         )
         self.timestep_hours = timestep_hours
-        self.solver_name = solver
 
         # Validate inputs
         self._validate_inputs()
@@ -88,7 +86,7 @@ class BaseEnergyOptimizer(ABC):
     ) -> None:
         """Add battery-specific columns to the results DataFrame data dict."""
 
-    def solve(self, verbose: bool = False, **kwargs) -> Dict[str, Any]:
+    def solve(self, solver_name: str = 'glpk', verbose: bool = False, **kwargs) -> Dict[str, Any]:
         """
         Solve the optimization problem.
 
@@ -101,12 +99,12 @@ class BaseEnergyOptimizer(ABC):
         if self.model is None:
             self.build_model()
 
-        logger.info(f"Solving with {self.solver_name}...")
+        logger.info(f"Solving with {solver_name}...")
 
-        solver = SolverFactory(self.solver_name, **kwargs)
+        solver = SolverFactory(solver_name, **kwargs)
 
         if not solver.available():
-            raise RuntimeError(f"Solver '{self.solver_name}' is not available")
+            raise RuntimeError(f"Solver '{solver_name}' is not available")
 
         self.results = solver.solve(self.model, tee=verbose)
 

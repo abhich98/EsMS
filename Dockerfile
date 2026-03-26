@@ -40,9 +40,6 @@ COPY esms/ esms/
 # Install Python dependencies
 RUN uv pip install --system --no-cache -e .
 
-# Create data directory for potential file operations
-RUN mkdir -p /app/data
-
 # Expose API port
 EXPOSE 8000
 

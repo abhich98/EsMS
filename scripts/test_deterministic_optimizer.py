@@ -122,7 +122,7 @@ def optimize_with_esms(pv_kw, load_kw, price_eur_per_kwh, battery_config, timest
     )
     
     # Solve
-    results = optimizer.solve(solver=solver_to_use, verbose=False, **solver_args)
+    results = optimizer.solve(solver_name=solver_to_use, verbose=False, **solver_args)
     
     return results['total_cost']
 

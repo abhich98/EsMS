@@ -84,7 +84,6 @@ def main():
         pv_forecast=pv_forecast,
         price_forecast=price_forecast,
         timestep_hours=timestep_hours,
-        solver=solver_to_use,
     )
     
     # Solve
@@ -94,7 +93,7 @@ def main():
     start_time = datetime.datetime.now()
     
     try:
-        results = optimizer.solve(verbose=True, **solver_args)
+        results = optimizer.solve(solver_name=solver_to_use, verbose=True, **solver_args)
 
         end_time = datetime.datetime.now()
         elapsed_time = end_time - start_time

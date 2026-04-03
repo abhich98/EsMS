@@ -1,6 +1,9 @@
 #!/bin/bash
 # Example script to test the EsMS API with curl
 
+# Change to script directory so relative file paths work
+cd "$(dirname "$0")"
+
 API_URL="http://localhost:8000"
 
 echo "Testing EsMS Energy Optimization API"
@@ -21,8 +24,11 @@ curl -X POST ${API_URL}/optimize \
   -F "config_json=@config.json" \
   -o schedule.csv
 
-echo ""
-echo "Optimization complete! Results saved to schedule.csv"
+if [ $? -eq 0 ]; then
+  echo "Optimization complete! Results saved to schedule.csv"
+else
+  echo "Optimization failed!"
+fi
 echo ""
 
 echo "===================================="

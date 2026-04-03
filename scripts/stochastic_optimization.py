@@ -12,10 +12,10 @@ import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 
-from esms.models import Battery
 from esms.optimization import StochasticEnergyOptimizer
 from esms.utils import simulate_rt_prices
 
+from deterministic_optimization import build_batteries
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,35 +25,6 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 META_DATA = yaml.safe_load(open(PROJECT_ROOT / "data" / "meta_data.yml", "r"))
-
-
-def update_battery_specs(
-    desired_date: pd.Timestamp,
-    oracle_df: pd.DataFrame,
-    battery_specs: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
-    """Get battery specs for a given date. Update the initial state of charge (SOC) based on the oracle perfect foresight data"""
-
-    previous_date = desired_date - pd.Timedelta(days=1)
-    previous_datetime = pd.Timestamp(
-        previous_date.year, previous_date.month, previous_date.day, 23
-    )  # 11 PM of previous day
-
-    updated_battery_specs = deepcopy(battery_specs)
-
-    for bat in updated_battery_specs:
-        bat_id = bat["id"]
-        default_init_soc = bat["initial_soc"]
-        bat["initial_soc"] = oracle_df[f"{bat_id}_soc"].get(
-            previous_datetime, default_init_soc
-        )
-
-    return updated_battery_specs
-
-
-def build_batteries(battery_specs: List[Dict[str, Any]]) -> List[Battery]:
-    """Create fresh `Battery` objects for each optimization run."""
-    return [Battery(**spec) for spec in battery_specs]
 
 
 def load_scenario_inputs(
@@ -73,13 +44,17 @@ def load_scenario_inputs(
     )
 
     price_df = pd.DataFrame(
-        {'price': scenarios_df["Energy price (EUR/kWh)"].to_numpy(dtype=float)}
+        {"price": scenarios_df["Energy price (EUR/kWh)"].to_numpy(dtype=float)}
     )
-    price_rt_scenarios = simulate_rt_prices(price_df,
-                                            volatility=np.random.uniform(*noise_params['volatility_range']),
-                                            jump_prob=noise_params['jump_prob'],
-                                            jump_magnitude=np.random.uniform(*noise_params['jump_magnitude_range'])
-                                            )["rt_price"].to_numpy(dtype=float).reshape(num_scenarios, 24)
+    price_rt_scenarios = simulate_rt_prices(
+        price_df,
+        volatility=np.random.uniform(*noise_params["volatility_range"]),
+        jump_prob=noise_params["jump_prob"],
+        jump_magnitude=np.random.uniform(*noise_params["jump_magnitude_range"]),
+    )["rt_price"]
+    price_rt_scenarios = price_rt_scenarios.to_numpy(dtype=float).reshape(
+        num_scenarios, 24
+    )
 
     probabilities = scenarios_df["Probability (%)"].to_numpy(dtype=float)[::24]
 
@@ -95,7 +70,13 @@ def solve_day_stochastic(
     solver: str = "scip",
 ) -> pd.DataFrame:
 
-    day_df = day_df.reset_index(drop=True)
+    # Suppress optimizer logs in each parallel worker
+    logging.getLogger("esms.optimization.stochastic_optimizer").setLevel(
+        logging.WARNING
+    )
+    logging.getLogger("esms.optimization.base_optimizer").setLevel(logging.WARNING)
+    logging.getLogger("pyomo.core").setLevel(logging.ERROR)
+
     price_da = day_df["Energy price (EUR/kWh)"].to_numpy(dtype=float)
     load_scenarios, pv_scenarios, price_rt_scenarios, scenarios_probs = (
         load_scenario_inputs(scenarios_df, num_scenarios, noise_params)
@@ -115,7 +96,9 @@ def solve_day_stochastic(
         timestep_hours=1.0,
     )
 
-    stochastic_results = stochastic_optimizer.solve(solver_name=solver, verbose=False, **solver_args)
+    stochastic_results = stochastic_optimizer.solve(
+        solver_name=solver, verbose=False, **solver_args
+    )
     results_df = stochastic_optimizer.results_to_dataframe(stochastic_results)
     results_df.index = pd.to_datetime(day_df["Date"].to_numpy())
     results_df.index.name = "Date"
@@ -140,12 +123,6 @@ def main() -> None:
         type=str,
         required=True,
         help="Path to the battery configuration JSON file",
-    )
-    parser.add_argument(
-        "--oracle_data_file",
-        type=str,
-        required=True,
-        help="Path to the oracle (perfect foresight) CSV file",
     )
     parser.add_argument(
         "--noise_params_file",
@@ -185,12 +162,6 @@ def main() -> None:
     logger.info("Loading battery configuration from %s", args.battery_file)
     with open(args.battery_file, "r") as f:
         def_battery_specs = json.load(f)
-
-    # Load oracle data
-    logger.info("Loading oracle data from %s", args.oracle_data_file)
-    oracle_df = pd.read_csv(args.oracle_data_file)
-    oracle_df["Date"] = pd.to_datetime(oracle_df["Date"])
-    oracle_df.set_index("Date", inplace=True)
 
     # Load noise parameters
     logger.info("Loading noise parameters from %s", args.noise_params_file)
@@ -239,11 +210,7 @@ def main() -> None:
                 day_df=s_df.iloc[day_index * 24 : (day_index + 1) * 24],
                 num_scenarios=args.num_scenarios,
                 scenarios_df=season_scenarios_dfs[season],
-                battery_specs=update_battery_specs(
-                    desired_date=s_df["Date"].iloc[day_index * 24].date(),
-                    oracle_df=oracle_df,
-                    battery_specs=def_battery_specs,
-                ),
+                battery_specs=deepcopy(def_battery_specs),
                 noise_params=noise_params,
                 solver=args.solver,
             )

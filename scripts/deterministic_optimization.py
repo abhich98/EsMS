@@ -1,16 +1,18 @@
 """
-Example usage of EsMS Energy Optimizer for day-ahead optimization with multiple batteries.
-The script reads forecast data from the `data/` directory (e.g., `data/Dataset.xlsx`).
-User can either pick a specific day or a random day is chosen for optimization.
+Example usage of EsMS Energy Optimizer for day-ahead optimization.
+Runs deterministic optimization for each day in a specified time period in parallel.
 """
 
 import logging
-import sys
 import numpy as np
 import pandas as pd
 import json
 import datetime
 import argparse
+from typing import Any, Dict, List
+from copy import deepcopy
+
+from joblib import Parallel, delayed
 
 from esms.models import Battery
 from esms.optimization import EnergyOptimizer
@@ -19,131 +21,173 @@ from esms.utils import get_available_pyomo_solvers
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
-
 logger = logging.getLogger(__name__)
 
 
-def main():
-    """Run optimization with data from 2023 dataset in the `data/` directory."""
+def build_batteries(battery_specs: List[Dict[str, Any]]) -> List[Battery]:
+    """Create Battery objects from specifications."""
+    return [Battery(**spec) for spec in battery_specs]
 
-    # Parse command-line arguments
-    parser = argparse.ArgumentParser(description="Run deterministic optimization for a selected day.")
 
-    parser.add_argument("--data_file", type=str, help="Path to the dataset Excel file")
-    parser.add_argument("--battery_file", type=str, help="Path to the battery configuration JSON file")
-    parser.add_argument("--start_day_index", type=int, help="Index of the first day to optimize (0-364)")
-    parser.add_argument("--num_days", type=int, default=1, required=False, help="Number of consecutive days to optimize")
-    parser.add_argument("--solver", type=str, default="scip", required=False, help="Pyomo solver to use (e.g., 'glpk', 'scip')")
-    parser.add_argument("--output_file", type=str, default="optimization_results.csv", required=False, help="Path to save optimization results CSV")
+def solve_day_deterministic(
+    day_df: pd.DataFrame,
+    battery_specs: List[Dict[str, Any]],
+    solver: str = "scip",
+) -> pd.DataFrame:
+    """Optimize a single day with deterministic approach.
 
-    args = parser.parse_args()
+    Args:
+        day_df: DataFrame with one day's forecast data (24 hours)
+        battery_specs: List of battery configuration dictionaries
+        solver: Pyomo solver name to use
 
-    data_df = pd.read_excel(args.data_file, sheet_name='2023 data', usecols='A:F', nrows=8762)
+    Returns:
+        DataFrame with optimization results for the day
+    """
+    pv_forecast = day_df["PV generation (kW)"].to_numpy(dtype=float)
+    load_forecast = day_df["Consumption (kW)"].to_numpy(dtype=float)
+    price_forecast = day_df["Energy price (EUR/kWh)"].to_numpy(dtype=float)
 
-    day_idx = args.start_day_index
-    num_days = args.num_days
-    battery_file = args.battery_file
-    with open(battery_file, 'r') as f:
-        batteries = json.load(f)
-
-    # get date from date index
-    date = data_df.iloc[day_idx * 24]['Date'].date()
-    forecast_df = data_df.iloc[day_idx * 24:(day_idx + num_days) * 24]
-    logger.info("=" * 60)
-    logger.info("EsMS Energy Optimizer - Deterministic Optimization")
-    logger.info(f"Selected day: {date} (index {day_idx})")
-    logger.info(f"Number of batteries in BESS: {len(batteries)}")
-    logger.info("=" * 60)
-    
-    # Define batteries
-    batteries = [Battery(**bat) for bat in batteries]
-    
-    # Create forecasts
-    pv_forecast, load_forecast, price_forecast = forecast_df['PV generation (kW)'].values, forecast_df['Consumption (kW)'].values, forecast_df['Energy price (EUR/kWh)'].values
-    timestep_hours = 1.0  # It is hourly data
-
-    logger.info(f"Forecasts:")
-    logger.info(f"PV range: {pv_forecast.min():.1f} - {pv_forecast.max():.1f} kW")
-    logger.info(f"Load range: {load_forecast.min():.1f} - {load_forecast.max():.1f} kW")
-    logger.info(f"Price range: {price_forecast.min():.3f} - {price_forecast.max():.3f} EUR/kWh")
-
-    solver_to_use = args.solver
-    if solver_to_use not in get_available_pyomo_solvers():
-        logger.warning(f"Solver '{solver_to_use}' is not available. Falling back to 'glpk'.")
-        solver_to_use = "glpk"
-    logger.info(f"Using solver: {solver_to_use}")
     solver_args = {}
-    if solver_to_use == "scip":
+    if solver == "scip":
         solver_args = {"solver_io": "nl"}
-    
+
     optimizer = EnergyOptimizer(
-        batteries=batteries,
+        batteries=build_batteries(battery_specs),
         load_forecast=load_forecast,
         pv_forecast=pv_forecast,
         price_forecast=price_forecast,
-        timestep_hours=timestep_hours,
+        timestep_hours=1.0,
     )
-    
-    # Solve
+
+    results = optimizer.solve(solver_name=solver, verbose=False, **solver_args)
+
+    results_df = optimizer.results_to_dataframe(results)
+    results_df.index = pd.to_datetime(day_df["Date"].to_numpy())
+    results_df.index.name = "Date"
+
+    return results_df
+
+
+def main():
+    """Run day-ahead deterministic optimization for a period of days."""
+
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="Run deterministic optimization for each day in a period."
+    )
+
+    parser.add_argument(
+        "--data_file", type=str, required=True, help="Path to the dataset Excel file"
+    )
+    parser.add_argument(
+        "--battery_file",
+        type=str,
+        required=True,
+        help="Path to the battery configuration JSON file",
+    )
+    parser.add_argument(
+        "--start_day_index",
+        type=int,
+        required=True,
+        help="Index of the first day to optimize (0-364)",
+    )
+    parser.add_argument(
+        "--num_days",
+        type=int,
+        default=1,
+        required=False,
+        help="Number of consecutive days to optimize",
+    )
+    parser.add_argument(
+        "--solver",
+        type=str,
+        default="scip",
+        required=False,
+        help="Pyomo solver to use (e.g., 'glpk', 'scip')",
+    )
+    parser.add_argument(
+        "--output_file",
+        type=str,
+        default="deterministic_optimization_results.csv",
+        required=False,
+        help="Path to save optimization results CSV",
+    )
+
+    args = parser.parse_args()
+
+    # Load dataset
+    logger.info("Loading dataset from %s", args.data_file)
+    data_df = pd.read_excel(
+        args.data_file, sheet_name="2023 data", usecols="A:F", nrows=8762
+    )
+
+    # Load battery specs
+    logger.info("Loading battery configuration from %s", args.battery_file)
+    with open(args.battery_file, "r") as f:
+        def_battery_specs = json.load(f)
+
+    # Validate solver
+    day_idx = args.start_day_index
+    num_days = args.num_days
+    solver_to_use = args.solver
+    if solver_to_use not in get_available_pyomo_solvers():
+        logger.warning(
+            f"Solver '{solver_to_use}' is not available. Falling back to 'glpk'."
+        )
+        solver_to_use = "glpk"
+
+    # Get date range
+    start_date = data_df.iloc[day_idx * 24]["Date"].date()
+    end_date = data_df.iloc[(day_idx + num_days - 1) * 24 + 23]["Date"].date()
+
     logger.info("=" * 60)
-    logger.info("Starting optimization...")
+    logger.info("EsMS Energy Optimizer - Deterministic Optimization (Parallel)")
+    logger.info(f"Date range: {start_date} to {end_date}")
+    logger.info(f"Number of days: {num_days}")
+    logger.info(f"Number of batteries: {len(def_battery_specs)}")
+    logger.info(f"Solver: {solver_to_use}")
     logger.info("=" * 60)
+
+    # Run optimization for each day in parallel
+    logger.info("Starting optimization for %d days in parallel...", num_days)
     start_time = datetime.datetime.now()
-    
+
     try:
-        results = optimizer.solve(solver_name=solver_to_use, verbose=True, **solver_args)
+        day_results = Parallel(n_jobs=-1)(
+            delayed(solve_day_deterministic)(
+                day_df=data_df.iloc[
+                    day_idx * 24 + i * 24 : day_idx * 24 + (i + 1) * 24
+                ],
+                battery_specs=deepcopy(def_battery_specs),
+                solver=solver_to_use,
+            )
+            for i in range(num_days)
+        )
+
+        # Concatenate results from all days
+        results_df = pd.concat(day_results, axis=0)
+        results_df.sort_index(inplace=True)
 
         end_time = datetime.datetime.now()
         elapsed_time = end_time - start_time
-        logger.info(f"Optimization completed in {elapsed_time}")
-        logger.info("=" * 60)
-        logger.info("RESULTS")
-        logger.info("=" * 60)
-        logger.info(f"Total cost: {results['total_cost']:.2f} EUR")
-        # Results without PV and management for comparison
-        logger.info(f"Potential Total Cost without PV and management: {sum(l * p * timestep_hours for l, p in zip(load_forecast, price_forecast)):.2f} EUR")
 
-        # Show battery schedules summary
-        logger.info("Battery schedules:")
-        for bat_result in results["batteries"]:
-            if 'charge' in bat_result:
-                total_charge = sum(bat_result["charge"])
-                total_discharge = sum(bat_result["discharge"])
-            else:
-                total_charge = np.nan
-                total_discharge = np.nan
-    
-            final_soc = bat_result["soc"][-1]
-            
-            logger.info(f"   {bat_result['id']}:")
-            logger.info(f"    Total charge: {total_charge * optimizer.timestep_hours:.1f} kWh")
-            logger.info(f"    Total discharge: {total_discharge * optimizer.timestep_hours:.1f} kWh")
-            logger.info(f"    Final SOC: {final_soc:.1f} kWh")
-        
-        # Grid interaction
-        total_import = sum(results["grid_import"])
-        total_export = sum(results["grid_export"])
-        logger.info(f"Grid interaction:")
-        logger.info(f"   Total import: {total_import * optimizer.timestep_hours:.1f} kWh")
-        logger.info(f"   Total export: {total_export * optimizer.timestep_hours:.1f} kWh")
-        
-        # Convert to DataFrame
-        df = optimizer.results_to_dataframe(results)
-        df.insert(0, 'Date', forecast_df['Date'].values)
-        logger.info(f"First 5 timesteps:")
-        logger.info(df.head(5))
-        logger.info(df.info())
-        
         logger.info("=" * 60)
-        logger.info("Optimization completed successfully!")
+        logger.info("OPTIMIZATION COMPLETED")
         logger.info("=" * 60)
-        
-        # Save results to CSV
-        df.to_csv(args.output_file, index=False)
+        logger.info(f"Optimization completed in {elapsed_time}")
+        logger.info(f"Generated output has {len(results_df) // 24} days")
+
+        # Save results
+        results_df.to_csv(args.output_file)
         logger.info(f"Results saved to {args.output_file}")
-        
+
+        logger.info(f"First 5 timesteps:")
+        logger.info(results_df.head(5))
+        logger.info("=" * 60)
+
     except Exception as e:
         logger.error(f"Optimization failed: {e}")
         raise

@@ -23,7 +23,5 @@ class SolverConfig(BaseModel):
         """Validate solver name."""
         valid_solvers = get_available_pyomo_solvers()
         if v.lower() not in valid_solvers:
-            raise ValueError(
-                f"solver must be one of {valid_solvers}, got '{v}'"
-            )
+            raise ValueError(f"solver must be one of {valid_solvers}, got '{v}'")
         return v.lower()

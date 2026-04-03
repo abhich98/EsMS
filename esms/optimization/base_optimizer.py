@@ -86,7 +86,9 @@ class BaseEnergyOptimizer(ABC):
     ) -> None:
         """Add battery-specific columns to the results DataFrame data dict."""
 
-    def solve(self, solver_name: str = 'glpk', verbose: bool = False, **kwargs) -> Dict[str, Any]:
+    def solve(
+        self, solver_name: str = "glpk", verbose: bool = False, **kwargs
+    ) -> Dict[str, Any]:
         """
         Solve the optimization problem.
 

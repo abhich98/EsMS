@@ -31,11 +31,13 @@ async def health_check():
     }
     if not available_solvers:
         status["status"] = "Unhealthy"
-        status["error"] = f"No available solvers found. Please install at least one of the follwing solvers: {SUGGESTED_SOLVERS}"
+        status["error"] = (
+            f"No available solvers found. Please install at least one of the follwing solvers: {SUGGESTED_SOLVERS}"
+        )
     else:
         status["status"] = "Healthy"
         status["available_solvers"] = available_solvers
-    
+
     return status
 
 
@@ -81,9 +83,7 @@ async def optimize(
         logger.info("Parsing config.json...")
         config_content = await config_json.read() if config_json else None
         config = IOService.parse_config_json(config_content)
-        logger.info(
-            f"Configuration: solver={config.solver}"
-        )
+        logger.info(f"Configuration: solver={config.solver}")
 
         # Run optimization
         logger.info("Running optimization...")

@@ -131,7 +131,7 @@ If export RT price is not provided, implementation sets $\pi_{s,t}^{\text{rt,exp
 
 #### First-stage (scenario-independent)
 
-- $G_t^{\text{ahead}} \ge 0$: ahead-market import commitment. We solve for this which becomes our policy decision.
+- $G_t^{\text{ahead}} \ge 0$: ahead-market import commitment. We solve for this which becomes our policy decision. **During evaluation, this is fixed and we only adapt second-stage recourse.**
 
 #### Second-stage (scenario-dependent)
 
@@ -194,8 +194,17 @@ $$
 
 #### (e) Grid import/export mutual exclusivity (big-M)
 
+Default case, no simultaneous import/export:
 $$
 G_t^{\text{ahead}} + G_{s,t}^{\text{rt,imp}} \le M\,v_{s,t}, \quad \forall s,t
+$$
+
+$$
+G_{s,t}^{\text{rt,exp}} \le M\,(1-v_{s,t}), \quad \forall s,t
+$$
+
+Evaluation case, fix ahead commitment and prevent simultaneous import/export:
+$$G_{s,t}^{\text{rt,imp}} \le M\,v_{s,t}, \quad \forall s,t
 $$
 
 $$

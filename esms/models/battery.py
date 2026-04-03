@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 class Battery(BaseModel):
     """
     Represents a Battery Energy Storage System with its operational parameters.
-    
+
     Attributes:
         id: Unique identifier for the battery
         capacity: Total energy capacity in kWh
@@ -24,17 +24,27 @@ class Battery(BaseModel):
         min_soc: Minimum allowed state of charge in kWh (defaults to 0 kWh)
         max_soc: Maximum allowed state of charge in kWh (defaults to capacity)
     """
-    
+
     id: str = Field(..., description="Unique battery identifier")
     capacity: float = Field(..., gt=0, description="Total energy capacity (kWh)")
     max_charge: float = Field(..., gt=0, description="Maximum charging power (kW)")
-    max_discharge: float = Field(..., gt=0, description="Maximum discharging power (kW)")
-    charge_efficiency: float = Field(..., gt=0, le=1, description="Charging efficiency (0-1)")
-    discharge_efficiency: float = Field(..., gt=0, le=1, description="Discharging efficiency (0-1)")
+    max_discharge: float = Field(
+        ..., gt=0, description="Maximum discharging power (kW)"
+    )
+    charge_efficiency: float = Field(
+        ..., gt=0, le=1, description="Charging efficiency (0-1)"
+    )
+    discharge_efficiency: float = Field(
+        ..., gt=0, le=1, description="Discharging efficiency (0-1)"
+    )
     initial_soc: float = Field(..., ge=0, description="Initial state of charge (kWh)")
-    min_soc: float = Field(default=0.0, ge=0, description="Minimum allowed state of charge (kWh)")
-    max_soc: Optional[float] = Field(default=None, ge=0, description="Maximum allowed state of charge (kWh)")
-    
+    min_soc: float = Field(
+        default=0.0, ge=0, description="Minimum allowed state of charge (kWh)"
+    )
+    max_soc: Optional[float] = Field(
+        default=None, ge=0, description="Maximum allowed state of charge (kWh)"
+    )
+
     @field_validator("max_soc")
     @classmethod
     def validate_max_soc(cls, v, info):
@@ -42,7 +52,7 @@ class Battery(BaseModel):
         if v is None and "capacity" in info.data:
             return info.data["capacity"]
         return v
-    
+
     @model_validator(mode="after")
     def validate_soc_limits(self):
         """Validate SOC limits and initial SOC."""
@@ -51,15 +61,15 @@ class Battery(BaseModel):
                 f"Battery {self.id}: SOC limits must satisfy "
                 f"0 <= min_soc ({self.min_soc}) < max_soc ({self.max_soc}) <= capacity ({self.capacity})"
             )
-        
+
         if not self.min_soc <= self.initial_soc <= self.max_soc:
             raise ValueError(
                 f"Battery {self.id}: initial_soc ({self.initial_soc}) must be "
                 f"between min_soc ({self.min_soc}) and max_soc ({self.max_soc})"
             )
-        
+
         return self
-    
+
     @property
     def round_trip_efficiency(self) -> float:
         """Calculate round-trip efficiency."""

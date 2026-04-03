@@ -34,9 +34,7 @@ class OptimizationService:
         Raises:
             RuntimeError: If optimization fails
         """
-        logger.info(
-            f"Starting optimization with {config.solver}"
-        )
+        logger.info(f"Starting optimization with {config.solver}")
         logger.info(f"Number of batteries: {len(batteries)}")
         logger.info(f"Number of timesteps: {len(forecasts['pv'])}")
 
@@ -52,7 +50,9 @@ class OptimizationService:
             )
 
             # Run optimization
-            results = optimizer.solve(solver_name=config.solver, verbose=config.verbose, **config.opts)
+            results = optimizer.solve(
+                solver_name=config.solver, verbose=config.verbose, **config.opts
+            )
 
             # Convert to DataFrame
             results_df = optimizer.results_to_dataframe(results)

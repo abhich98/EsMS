@@ -8,6 +8,11 @@ The file includes several sheets, grouped into four main categories:
 3. Representative daily scenarios
 4. Real battery charge/discharge profiles
 
+> "The authors acquired PV generation and demand data at the GECAD research center from building N (GECAD) located at ISEP in Porto/Portugal. Additionally, the energy price data (€/MWh) were obtained from the OMIE (Operator of the Iberian Energy Market), reflecting conditions in Portugal."
+
+
+> "Real battery charging and discharging data were collected from the BMS of three battery energy storage systems (BESS) with 2.4 kWh of capacity each. These BESS are located at the GECAD research center, the building N at ISEP in Porto/Portugal."
+
 Below is a description of each sheet and its structure.
 
 ### 2023 Data Sheet

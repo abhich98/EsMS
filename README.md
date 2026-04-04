@@ -85,14 +85,14 @@ Based on one year data, where the optimization is performed day by day, with the
 | Optimization Approach | Total Cost (EUR) | Difference from Perfect Foresight (%) |
 |-----------------------|------------------|---------------------------------------|
 | Perfect Foresight     | €1,504,581.45 | 0.00% |
-| Stochastic Optimization (3 scenarios) | €1,516,503.66 | +0.79% |
-| Stochastic Optimization (9 scenarios) | €1,512,793.09 | +0.54% |
+| Policy from Stochastic Optimization (3 scenarios) | €1,516,503.66 | +0.79% |
+| Policy from Stochastic Optimization (9 scenarios) | €1,512,793.09 | +0.54% |
 
 
 **Note:** The actual costs and differences may vary based on the specific data, parameters, and assumptions used in the optimization. The above values may differ slights with each run due to the noise simulation while generating real-time energy prices.
 
 ### Web App for Visualization
-A web application is developed using [Streamlit](https://streamlit.io/) to visualize the results and compare the costs incurred by the different optimization approaches. The app allows users to select different time periods (e.g., start and end dates) and compare the costs incurred.
+A web application is developed using [`Streamlit`](https://streamlit.io/) to visualize the results and compare the costs incurred by the different optimization approaches. The app allows users to select different time periods (e.g., start and end dates) and compare the costs incurred.
 
 ![](./screenshot_results_explorer.png)
 

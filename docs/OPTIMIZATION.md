@@ -61,7 +61,7 @@ $$
 
 #### (b) SOC dynamics
 
-For $t=0$:
+For $t=0$, state after the first control action:
 
 $$
 SOC_{b,0} = SOC_b^{0} + \eta_b^{\text{ch}} P_{b,0}^{\text{ch}}\Delta t - \frac{P_{b,0}^{\text{dis}}\Delta t}{\eta_b^{\text{dis}}}, \quad \forall b
@@ -162,7 +162,7 @@ $$
 
 #### (b) Scenario-wise SOC dynamics
 
-For $t=0$:
+For $t=0$, state after the first control action:
 
 $$
 SOC_{b,s,0} = SOC_b^0 + \eta_b^{\text{ch}} P_{b,s,0}^{\text{ch}}\Delta t - \frac{P_{b,s,0}^{\text{dis}}\Delta t}{\eta_b^{\text{dis}}},
@@ -219,3 +219,4 @@ This prevents simultaneous import and export in each scenario/timestep (up to bi
 - Deterministic model output columns correspond to `charge`, `discharge`, `soc`, `grid_import`, `grid_export`.
 - Stochastic model stores full scenario results plus expected (probability-weighted) schedules.
 - Both formulations are MILP due to binary variables ($u$ and $v$ for battery and grid respectively).
+- This descision to use differnt variables for import/export and charge/discharge with big-M logic is made for flexibility in handling cases where import/export prices differ and charge/discharge efficiencies differ.

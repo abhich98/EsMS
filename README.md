@@ -2,7 +2,7 @@
 
 Implementation of an energy management system (EMS) for optimizing the operation of a multi-asset entity with PV generation, battery storage, and grid interaction. 
 
-The main objective is to test different solvers and compare **deterministic optimization** vs **scenario-based stochastic optimization**. For learning and testing purposes, this project provides a Dockerized REST API for accessing the optimization service (example for day-ahead scheduling, read [API docs](./API_README.md)).
+The main objective is to test different solvers and compare **deterministic optimization** vs **scenario-based stochastic optimization**. For practical purposes, this project provides a Dockerized REST API for accessing the optimization service (example for day-ahead scheduling, read [API docs](./docs/API_README.md)).
 
 ##  Data Source
 

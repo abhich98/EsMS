@@ -146,6 +146,11 @@ def test_data():
     date = forecast_df.iloc[day_idx * 24]["Date"].date()
     forecast_df_day = forecast_df.iloc[day_idx * 24 : (day_idx + 1) * 24]
 
+    # Adjust battery configuration for the test, to ensure it is consistent between esms and pypsa
+    for bc in batteries:
+        bc["max_discharge"] = bc["max_charge"]  # Ensure max discharge equals max charge
+        bc["min_soc"] = 0.0  # Set min SOC to 0 for both optimizers
+
     # Extract forecasts
     pv_forecast = forecast_df_day["PV generation (kW)"].values
     load_forecast = forecast_df_day["Consumption (kW)"].values
@@ -199,11 +204,11 @@ def test_esms_vs_pypsa_optimization(test_data):
         battery_config=test_data["batteries"],
         hours=test_data["hours"],
     )
-    pypsa_cost /= 1000.0  # Convert EUR/MWh to EUR/kWh for comparison
+    pypsa_cost /= 1000.0  # Correction for passing kW data as MW to PyPSA
     logger.info(f"PyPSA optimal cost: {pypsa_cost:.2f} EUR")
 
     # Calculate relative difference
-    relative_diff = abs(esms_cost - pypsa_cost) / max(abs(esms_cost), abs(pypsa_cost))
+    relative_diff = abs(esms_cost - pypsa_cost) / abs(pypsa_cost)
     logger.info(f"Absolute difference: {abs(esms_cost - pypsa_cost):.2f} EUR")
     logger.info(f"Relative difference: {relative_diff * 100:.2f}%")
     logger.info("=" * 60)

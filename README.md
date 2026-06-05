@@ -1,18 +1,42 @@
 # 🔋 EsMS - Energy Storage Management System
 
-Implementation of an energy management system (EMS) for optimizing the operation of a multi-asset entity with PV generation, battery storage, and grid interaction. 
+*Implementation of an energy management system (EMS) for optimizing the operation of a multi-asset entity with PV generation, battery storage, and grid exchange.*
 
-The main objective is to test different solvers and compare **deterministic optimization** vs **scenario-based stochastic optimization**. For practical purposes, this project provides a Dockerized REST API for accessing the optimization service (example for day-ahead scheduling, read [API docs](./docs/API_README.md)).
+Many countries, including Germany, offer residential customers the option to select flexible dynamic electricity contracts, where tariffs vary over time based on market conditions and supply-demand balance. At the same time, governments have encouraged the adoption of PV systems to increase renewable energy generation and self-consumption. In this context, an EMS can be used to schedule the battery energy storage system (BESS) so as to minimize energy costs by making better use of PV and other renewable generation, while accounting for the cost of importing from and exporting to the grid. The EMS can help reduce peak demand charges by strategically charging and discharging the battery based on the load profile and energy prices.
 
-##  Data Source
+**A simple EMS generally consists of a forecasting module to predict future load, PV generation, and energy prices, and an optimization module that uses these forecasts to determine the optimal schedule for the battery and grid exchange.** Various powerful machine learning and optimization techniques have been developed to solve the EMS problem.  Below is an example pipeline of a typical EMS implementation:
 
-The data used in this project comes from:
-- Tayenne, L., Bruno, R., Pedro, F., Luis, G., & Zita, V. (2025). Dataset for daily energy management: Renewable generation, consumption, and storage (v1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.14918474
+```
+[Historical Data & Real-Time Weather API] 
+                 │
+                 ▼
+[Scenario Generation (GMMs / LSTMs / Markov Processes)]
+                 │
+                 ▼
+[Scenario Reduction (e.g., K-Means or Backward Reduction)]
+                 │
+                 ▼
+★★★★ PROJECT FOCUS [Two-Stage MILP Solver] ★★★★
+                 └──► Minimizes: $Cost_{Grid} + Penalty_{Degradation}$
+                 │
+                 ▼
+[Receding Horizon Execution (Apply Step 1, Repeat in 15 mins)]
 
+```
 
-To find more about the data, please refer to the [Data](./data/README.md) document.
+Here, MILP stands for **Mixed-Integer Linear Programming**, which is a powerful optimization technique that can handle both continuous and discrete decision variables, making it suitable for modeling the EMS problem with its various constraints and objectives.
 
+## Project Objective
 
+The objective of the project is to apply **deterministic optimization** and **scenario-based stochastic optimization** in the context of residential household energy management. This involves:
+
+- ingesting and preprocessing historical data on load, PV generation from open source datasets [[1](https://doi.org/10.5281/zenodo.14918474), [2](https://doi.org/10.1038/s41597-022-01156-1)], and energy prices from SMARD
+- comparing different optimization solvers (e.g., GLPK, SCIP) and using them via Pyomo
+- implementing a two-stage stochastic MILP to optimize the battery schedule and grid exchange
+- evaluating the performance of two-stage stochastic optimization against perfect foresight optimization
+- implementing and comparing various machine learning techniques for forecasting and scenario generation
+
+> For practical purposes, this project provides a Dockerized REST API for accessing the optimization service (example for day-ahead scheduling, read [API docs](./docs/API_README.md)).
 
 ## 🔧 Development and Analysis
 ### Python and libraries
@@ -60,6 +84,14 @@ data/
 ├── generated/       # Generated real-time prices and optimization results
 
 ```
+###  Data Source
+
+The data used in this project comes from:
+- Tayenne, L., Bruno, R., Pedro, F., Luis, G., & Zita, V. (2025). Dataset for daily energy management: Renewable generation, consumption, and storage (v1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.14918474
+
+
+To find more about the data, please refer to the [Data](./data/data_GECAD_portugal/README.md) document.
+
 
 ### Analysis Workflow
 ![](data_analysis_workflow.png)

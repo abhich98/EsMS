@@ -1,10 +1,24 @@
-# 🔋 EsMS - Energy Storage Management System
+# 🔋 EsMS - Energy (Storage) Management System
 
-*Implementation of an energy management system (EMS) for optimizing the operation of a multi-asset entity with PV generation, battery storage, and grid exchange.*
+*Implementation of an energy management system (EMS) for optimizing the operation of a multi-asset entity with photovoltaic (PV) generation, battery storage, and grid exchange.*
 
-Many countries, including Germany, offer residential customers the option to select flexible dynamic electricity contracts, where tariffs vary over time based on market conditions and supply-demand balance. At the same time, governments have encouraged the adoption of PV systems to increase renewable energy generation and self-consumption. In this context, an EMS can be used to schedule the battery energy storage system (BESS) so as to minimize energy costs by making better use of PV and other renewable generation, while accounting for the cost of importing from and exporting to the grid. The EMS can help reduce peak demand charges by strategically charging and discharging the battery based on the load profile and energy prices.
+An EMS is useful to schedule the grid exchange (import/export) and battery exchange (charge/discharge) so as to minimize energy costs by making better use of battery energy storage system (BESS) and generated renewable energy. Industries or households, any entity with a BESS and PV generation can benefit from an EMS, especially when they are on **dynamic electricity tariffs**. The EMS can help reduce peak demand charges by strategically charging and discharging the battery based on the consumption profile and energy prices.
 
-**A simple EMS generally consists of a forecasting module to predict future load, PV generation, and energy prices, and an optimization module that uses these forecasts to determine the optimal schedule for the battery and grid exchange.** Various powerful machine learning and optimization techniques have been developed to solve the EMS problem.  Below is an example pipeline of a typical EMS implementation:
+### Dynamic electricity tariffs 
+Dynamic electricity tariffs allow consumers to adjust their energy consumption based on price signals. That means the price of electricity can vary throughout the day and consumers can save money (~30%, [luox](https://www.luox-energy.de/en/zuhause/dynamischer-stromtarif), [ostrom](https://www.ostrom.de/en/dynamic-pricing)) by consuming more energy when prices are low and less when prices are high (representative infographic below).
+
+<div style="text-align: center;">
+  <img src="dynamic_tariffs.png" alt="Infographic of dynamic tariffs" width="400">
+</div>
+
+While such electricy contracts are common in industrial and commercial settings, they are still relatively new to households in Germany.
+> Since 1 January 2025, all electricity providers in Germany have been legally required to offer dynamic electricity tariffs. However, a 2024 survey showed that over 80% of German households still feel poorly informed about dynamic electricity tariffs [[1](https://www.ffe.de/en/publications/series-of-articles-dynamic-electricity-tariffs-tariff-types-advantages-and-disadvantages-technical-requirements/), [2](https://www.vzbv.de/pressemitteilungen/dynamische-stromtarife-19-millionen-haushalte-im-dunkeln)].
+
+<!-- Dynamic electricity prices are often tied to spot market prices, such as those on the day-ahead market, and therefore fluctuate similarly to the spot market. -->
+
+<!-- Many countries, including Germany, offer residential customers the option to select flexible dynamic electricity contracts, where tariffs vary over time based on market conditions and supply-demand balance. At the same time, governments have encouraged the adoption of PV systems to increase renewable energy generation and self-consumption. In this context, an EMS can be used to schedule the battery energy storage system (BESS) so as to minimize energy costs by making better use of PV and other renewable generation, while accounting for the cost of importing from and exporting to the grid. The EMS can help reduce peak demand charges by strategically charging and discharging the battery based on the load profile and energy prices. -->
+### Typical EMS Pipeline
+**An EMS generally consists of a forecasting module to predict future load, PV generation, and energy prices, and an optimization module that uses these forecasts to determine the optimal schedule for the battery and grid exchange.** Below is an example of a modern EMS implementation:
 
 ```
 [Historical Data & Real-Time Weather API] 
@@ -24,17 +38,20 @@ Many countries, including Germany, offer residential customers the option to sel
 
 ```
 
-This project mainly focuses on the **optimization module**, along with exploring different forecasting and scenario generation techniques. Here, MILP stands for **Mixed-Integer Linear Programming**, which is a powerful optimization technique that can handle both continuous and discrete decision variables, making it suitable for modeling the EMS problem with its various constraints and objectives.
-
 ## Project Objective
 
-The objective of the project is to apply **deterministic optimization** and **scenario-based stochastic optimization** in the context of residential household energy management. This involves:
+This project mainly focuses on the **optimization module**, along with exploring different forecasting and scenario generation techniques. The objective of the project is to apply **scenario-based stochastic optimization** in the context of residential household energy management. This involves:
 
-- ingesting and preprocessing historical data on load, PV generation from open source datasets [[1](https://doi.org/10.5281/zenodo.14918474), [2](https://doi.org/10.1038/s41597-022-01156-1)], and energy prices from SMARD
+- ingesting and preprocessing historical household data on load, PV generation from open source datasets [[3](https://doi.org/10.5281/zenodo.14918474), [4](https://doi.org/10.1038/s41597-022-01156-1)], and energy prices from SMARD
 - comparing different optimization solvers (e.g., GLPK, SCIP) and using them via Pyomo
 - implementing a two-stage stochastic optimization to optimize the *battery schedule*
 - evaluating the performance of two-stage stochastic optimization against perfect foresight optimization
-- implementing and comparing various machine learning techniques for forecasting and scenario generation
+- (later) implementing and comparing various machine learning techniques for forecasting and scenario generation
+
+## How much money can be saved?
+
+The cost savings from using an EMS with a BESS depend on various factors, including the size of the PV system, the capacity of the battery, etc. However, from historical or forecasted data, we can estimate the potential (maximum) savings possible by comparing the cost with EMS+BESS vs. without them.
+
 
 > For practical purposes, this project provides a Dockerized REST API for accessing the optimization service (example for day-ahead scheduling, read [API docs](./docs/API_README.md)).
 

@@ -379,7 +379,7 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
             # First-stage cost: ahead market
             ahead_cost = sum(
                 (
-                    model.PriceAhead[t] * model.grid_import_ahead[t]
+                    model.ImportPriceAhead[t] * model.grid_import_ahead[t]
                     - model.ExportPriceAhead[t] * model.grid_export_ahead[t]
                 )
                 * model.dt
@@ -396,7 +396,7 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
             rt_expected_cost = sum(
                 model.Prob[s]
                 * (
-                    model.PriceRT[s, t] * model.grid_import_rt[s, t]
+                    model.ImportPriceRT[s, t] * model.grid_import_rt[s, t]
                     - model.ExportPriceRT[s, t] * model.grid_export_rt[s, t]
                 )
                 * model.dt

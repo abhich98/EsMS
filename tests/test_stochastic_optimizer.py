@@ -51,8 +51,8 @@ def optimize_with_stochastic_esms(
         batteries=batteries,
         load_scenarios=load_scenarios,
         pv_scenarios=pv_scenarios,
-        price_forecast=price_eur_per_kwh,
-        price_rt_scenarios=price_rt_scenarios,
+        import_price_ahead=price_eur_per_kwh,
+        import_price_rt_scenarios=price_rt_scenarios,
         scenario_probabilities=[1.0],
         timestep_hours=timestep_hours,
     )

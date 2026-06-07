@@ -119,7 +119,7 @@ def optimize_with_esms(
         batteries=batteries,
         load_forecast=load_kw,
         pv_forecast=pv_kw,
-        price_forecast=price_eur_per_kwh,
+        import_price_forecast=price_eur_per_kwh,
         timestep_hours=timestep_hours,
     )
 
@@ -134,7 +134,7 @@ def test_data():
     """Load test data for optimization comparison."""
     # Load forecast data
     forecast_df = pd.read_excel(
-        "data/Dataset.xlsx", sheet_name="2023 data", usecols="A:F", nrows=8762
+        "data/data_GECAD_portugal/Dataset.xlsx", sheet_name="2023 data", usecols="A:F", nrows=8762
     )
 
     # Load battery configuration
@@ -150,6 +150,7 @@ def test_data():
     for bc in batteries:
         bc["max_discharge"] = bc["max_charge"]  # Ensure max discharge equals max charge
         bc["min_soc"] = 0.0  # Set min SOC to 0 for both optimizers
+        bc["degradation_cost"] = 0.0  # Set degradation cost to 0 for both optimizers
 
     # Extract forecasts
     pv_forecast = forecast_df_day["PV generation (kW)"].values

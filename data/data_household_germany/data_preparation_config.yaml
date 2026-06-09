@@ -1,6 +1,10 @@
-version: 1.0.0
+version: 1.0.1
 household_id: SFH9
 PV_ratio: 15 / 58 # Number of modules assumed / number of modules in the PV system, to scale the PV generation to the household load
+
+year: 2019
+time_delta: 0.25 # in hours
+
 input:
   hdf5_file: 2019_data_15min.hdf5
   prices_file: Day-ahead_prices_201901010000_202001020000_Quarterhour.csv

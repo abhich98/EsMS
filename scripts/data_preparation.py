@@ -19,7 +19,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("Data Preparation")
 
 
 def load_config(config_path: Path) -> dict[str, Any]:
@@ -29,6 +29,16 @@ def load_config(config_path: Path) -> dict[str, Any]:
 
 def build_hdf_table_path(template: str, household_id: str) -> str:
 	return template.format(household_id=household_id)
+
+
+def ensure_unique_date_rows(frame: pd.DataFrame, value_columns: list[str]) -> pd.DataFrame:
+	aggregated = (
+		frame.groupby("Date", as_index=False)[value_columns]
+		.mean(numeric_only=True)
+		.sort_values("Date")
+		.reset_index(drop=True)
+	)
+	return aggregated[["Date", *value_columns]]
 
 
 def read_power_table(
@@ -43,7 +53,8 @@ def read_power_table(
 	frame["Date"] = pd.to_datetime(frame[time_column], unit="s")
 	frame[value_name] = pd.to_numeric(frame[power_column], errors="coerce")
 	frame[value_name] /= 1000.0  # Convert W to kW
-	return frame[["Date", value_name]]
+
+	return ensure_unique_date_rows(frame, [value_name])
 
 
 def read_price_table(
@@ -57,7 +68,8 @@ def read_price_table(
 		prices[price_mwh_column], errors="coerce"
 	)
 	prices["Energy price (EUR/kWh)"] = prices["Energy price (EUR/MWh)"] / 1000.0
-	return prices[["Date", "Energy price (EUR/MWh)", "Energy price (EUR/kWh)"]]
+
+	return ensure_unique_date_rows(prices, ["Energy price (EUR/MWh)", "Energy price (EUR/kWh)"])
 
 
 def build_dataset(config: dict[str, Any], config_path: Path) -> pd.DataFrame:
@@ -69,6 +81,14 @@ def build_dataset(config: dict[str, Any], config_path: Path) -> pd.DataFrame:
 	hdf5_path = data_dir / config["input"]["hdf5_file"]
 	prices_path = data_dir / config["input"]["prices_file"]
 
+	year = config["year"]
+	time_delta = config["time_delta"]
+	time_series = pd.date_range(
+		start=f"{year}-01-01 00:00:00",
+		end=f"{year}-12-31 23:59:59",
+		freq=pd.Timedelta(hours=time_delta),
+	)
+
 	with h5py.File(hdf5_path, "r") as h5_file:
 		pv = read_power_table(
 			h5_file,
@@ -76,7 +96,7 @@ def build_dataset(config: dict[str, Any], config_path: Path) -> pd.DataFrame:
 			time_column,
 			power_column,
 			"PV generation (kW)",
-		) 
+		)
 		pv["PV generation (kW)"] *= eval(config["PV_ratio"])  # Scale PV generation to household load
 
 		household = read_power_table(
@@ -106,9 +126,13 @@ def build_dataset(config: dict[str, Any], config_path: Path) -> pd.DataFrame:
 		config["columns"]["price_mwh"],
 	)
 
-	dataset = prices.merge(pv, on="Date", how="left")
-	dataset = dataset.merge(load, on="Date", how="left")
+	dataset = pd.DataFrame({"Date": time_series})
+	logger.info(f"dataset shape after initialization: {dataset.shape}")
+	dataset = dataset.merge(prices, on="Date", how="left", validate="one_to_one")
+	dataset = dataset.merge(pv, on="Date", how="left", validate="one_to_one")
+	dataset = dataset.merge(load, on="Date", how="left", validate="one_to_one")
 	dataset = dataset.sort_values("Date").reset_index(drop=True)
+
 	dataset["Consumption (pu)"] = (
 		dataset["Consumption (kW)"] / dataset["Consumption (kW)"].max(skipna=True)
 	)
@@ -121,6 +145,7 @@ def build_dataset(config: dict[str, Any], config_path: Path) -> pd.DataFrame:
 		"Energy price (EUR/MWh)",
 		"Energy price (EUR/kWh)",
 	]
+	logger.info(f"Final dataset shape: {dataset.shape}")
 	return dataset[column_order]
 
 
@@ -158,12 +183,13 @@ def main() -> None:
 	config_path = args.config.resolve()
 	config = load_config(config_path)
 	version = config["version"]
+	logger.info(f"Building dataset version {version} using config at {config_path}")
 
 	dataset = build_dataset(config, config_path)
 	output_path = build_output_path(config, version)
 	write_dataset(dataset, config, output_path)
 
-	print(f"Wrote {len(dataset)} rows to {output_path}")
+	logger.info(f"Wrote {len(dataset)} rows to {output_path}")
 
 
 if __name__ == "__main__":

@@ -148,7 +148,11 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
         grid_import_ahead_values: Optional[np.ndarray] = None,
         grid_export_ahead_values: Optional[np.ndarray] = None,
         battery_charge_ahead_values: Optional[np.ndarray] = None,
-        battery_discharge_ahead_values: Optional[np.ndarray] = None
+        battery_discharge_ahead_values: Optional[np.ndarray] = None,
+        grid_import_rt_values: Optional[np.ndarray] = None,
+        grid_export_rt_values: Optional[np.ndarray] = None,
+        charge_realtime_values: Optional[np.ndarray] = None,
+        discharge_realtime_values: Optional[np.ndarray] = None,
     ) -> ConcreteModel:
         """
         Build the two-stage stochastic optimization model.
@@ -370,6 +374,26 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
             domain=Binary,
             doc="Grid import/export state binary (1=can import, 0=can export)",
         )
+
+        # FOR POLICY EVALUATION AND FLEXIBILITY: Allow fixing second-stage variables to provided values
+        if grid_import_rt_values is not None:
+            for s in model.S:
+                for t in model.T:
+                    model.grid_import_rt[s, t].fix(grid_import_rt_values[s, t])
+        if grid_export_rt_values is not None:
+            for s in model.S:
+                for t in model.T:
+                    model.grid_export_rt[s, t].fix(grid_export_rt_values[s, t])
+        if charge_realtime_values is not None:
+            for b in model.B:
+                for s in model.S:
+                    for t in model.T:
+                        model.charge_realtime[b, s, t].fix(charge_realtime_values[b, s, t])
+        if discharge_realtime_values is not None:
+            for b in model.B:
+                for s in model.S:
+                    for t in model.T:
+                        model.discharge_realtime[b, s, t].fix(discharge_realtime_values[b, s, t])
 
         # =================================================================
         # OBJECTIVE FUNCTION
@@ -697,7 +721,7 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
         if results is None:
             results = self._extract_results()
 
-        n_timesteps = len(self.price_ahead)
+        n_timesteps = len(self.import_price_ahead)
 
         data: Dict[str, Any] = {
             "timestep": range(n_timesteps),
@@ -739,7 +763,7 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
             results = self._extract_results()
 
         scenario_dfs = []
-        n_timesteps = len(self.price_ahead)
+        n_timesteps = len(self.import_price_ahead)
 
         for scenario_result in results["scenarios"]:
             s = scenario_result["scenario"]

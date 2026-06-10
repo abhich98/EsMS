@@ -9,6 +9,19 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
+BATTERY_UNITS = {
+	"capacity": "kWh",
+	"max_charge": "kW",
+	"max_discharge": "kW",
+	"charge_efficiency": [0, 1],
+	"discharge_efficiency": [0, 1],
+	"initial_soc": "kWh",
+	"min_soc": "kWh",
+	"max_soc": "kWh",
+	"degradation_cost": "EUR/kWh",
+}
+
+
 class Battery(BaseModel):
     """
     Represents a Battery Energy Storage System with its operational parameters.

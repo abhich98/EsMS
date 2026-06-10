@@ -2,10 +2,12 @@
 
 *Implementation of an energy management system (EMS) for optimizing the operation of a multi-asset entity with photovoltaic (PV) generation, battery storage, and grid exchange.*
 
-An EMS is useful to schedule the grid exchange (import/export) and battery exchange (charge/discharge) so as to minimize energy costs by making better use of battery energy storage system (BESS) and generated renewable energy. Industries or households, any entity with a BESS and PV generation can benefit from an EMS, especially when they are on **dynamic electricity tariffs**. The EMS can help reduce peak demand charges by strategically charging and discharging the battery based on the consumption profile and energy prices.
+An EMS is useful to schedule the grid exchange (import/export) and battery exchange (charge/discharge) so as to minimize energy costs by making better use of battery energy storage system (BESS) and generated renewable energy. Industries or households, any entity with a BESS and PV generation can benefit from an EMS, especially when they are on **dynamic electricity tariffs**. The EMS can help reduce the net energy costs by strategically deciding when to import from the grid, cosume solar locally, discharge the battery, etc.
+
+<!-- charging and discharging the battery based on the consumption profile and energy prices. -->
 
 ### Dynamic electricity tariffs 
-Dynamic electricity tariffs allow consumers to adjust their energy consumption based on price signals. That means the price of electricity can vary throughout the day and consumers can save money (~30%, [luox](https://www.luox-energy.de/en/zuhause/dynamischer-stromtarif), [ostrom](https://www.ostrom.de/en/dynamic-pricing)) by consuming more energy when prices are low and less when prices are high (representative infographic below).
+Dynamic electricity tariffs allow consumers to adjust their energy consumption based on price signals. That means the price of electricity can vary throughout the day and consumers can save money (~30% compared to fixed tariffs [[luox](https://www.luox-energy.de/en/zuhause/dynamischer-stromtarif), [ostrom](https://www.ostrom.de/en/dynamic-pricing)]) by consuming more energy when prices are low and less when prices are high (representative infographic below).
 
 <div style="text-align: center;">
   <img src="dynamic_tariffs.png" alt="Infographic of dynamic tariffs" width="400">
@@ -18,7 +20,7 @@ While such electricy contracts are common in industrial and commercial settings,
 
 <!-- Many countries, including Germany, offer residential customers the option to select flexible dynamic electricity contracts, where tariffs vary over time based on market conditions and supply-demand balance. At the same time, governments have encouraged the adoption of PV systems to increase renewable energy generation and self-consumption. In this context, an EMS can be used to schedule the battery energy storage system (BESS) so as to minimize energy costs by making better use of PV and other renewable generation, while accounting for the cost of importing from and exporting to the grid. The EMS can help reduce peak demand charges by strategically charging and discharging the battery based on the load profile and energy prices. -->
 ### Typical EMS Pipeline
-**An EMS generally consists of a forecasting module to predict future load, PV generation, and energy prices, and an optimization module that uses these forecasts to determine the optimal schedule for the battery and grid exchange.** Below is an example of a modern EMS implementation:
+While one can benefit from dynamic electricity tariffs without an EMS by simply shifting consumption to low-price periods, an EMS can further optimize the schedule to minimize costs [[gridx](https://www.gridx.ai/press-releases/smart-electric-heating-slashes-costs-by-up-to-60-percent-and-fires-up-heat-pump-adoption#:~:text=The%20study%20found%20that%20if,1%2C390%20euros%2C%20or%2060%20percent.), [belinus](https://www.belinus.com/post/real-time-energy-management-36-percent-savings#:~:text=Metric,environmental%20impact%20is%20real%20too.)]. An EMS generally consists of a forecasting module to predict future load, PV generation, and energy prices, and an optimization module that uses these forecasts to determine the optimal schedule for the battery and grid exchange. Below is an example of a modern EMS implementation:
 
 ```
 [Historical Data & Real-Time Weather API] 
@@ -48,12 +50,13 @@ This project mainly focuses on the **optimization module**, along with exploring
 - evaluating the performance of two-stage stochastic optimization against perfect foresight optimization
 - (later) implementing and comparing various machine learning techniques for forecasting and scenario generation
 
-## How much money can be saved?
+## How much money can be saved (ideally)?
 
-The cost savings from using an EMS with a BESS depend on various factors, including the size of the PV system, the capacity of the battery, etc. However, from historical or forecasted data, we can estimate the potential (maximum) savings possible by comparing the cost with EMS+BESS vs. without them.
+Considering a household on a dynamic electricity tariff with a PV system and a BESS, the cost savings from using an EMS depend on various factors, including the size of the PV system, the capacity of the battery, etc. However, from historical or forecasted data, we can get an estimate of the potential savings.
 
+https://abhich98-esms.streamlit.app/, use the web app to upload your own data or use the provided historical data to see the potential cost savings.
 
-> For practical purposes, this project provides a Dockerized REST API for accessing the optimization service (example for day-ahead scheduling, read [API docs](./docs/API_README.md)).
+> NOTE: It is better to look at the *relative* cost savings (e.g., percentage reduction) rather than the absolute cost savings, as the fixed costs (e.g., grid connection fee) were not included in the calculation and can vary widely across households. NO CLAIMS OR GUARANTEES ARE MADE.
 
 ## 🔧 Development and Analysis
 ### Python and libraries
@@ -69,84 +72,3 @@ Install `uv` with `pip` and then sync the environment with the dependencies spec
 ```
 
 [`Make`](./Makefile) is used to automate the data generation and analysis process, ensuring that the results are reproducible and can be easily updated when new data or parameters are available.
-
-### Project Structure
-
-```
-esms/
-├── optimization/      # Optimization engines
-│   ├── base_optimizer.py
-│   ├── optimizer.py       # Deterministic optimization
-│   └── stochastic_optimizer.py    # Stochastic optimization and evaluation
-├── models/            
-|   └── battery.py   # Battery model with SOC and efficiency
-├── api/                # FastAPI application
-│   ├── main.py        # App initialization
-│   ├── routes.py      # Endpoints
-│   └── schemas.py     # Pydantic models
-├── services/          # Business logic
-│   ├── io_service.py
-│   └── optimization_service.py
-|── utils.py            # Utility functions
-```
-```
-scripts/             # Data processing and analysis scripts
-├── deterministic_optimization.py
-├── stochastic_optimization.py
-├── stochastic_policy_evaluation.py
-├── rt_price_generation.py
-
-data/
-├── Dataset.xlsx     # Original dataset
-├── generated/       # Generated real-time prices and optimization results
-
-```
-###  Data Source
-
-The data used in this project comes from:
-- Tayenne, L., Bruno, R., Pedro, F., Luis, G., & Zita, V. (2025). Dataset for daily energy management: Renewable generation, consumption, and storage (v1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.14918474
-
-
-To find more about the data, please refer to the [Data](./data/data_GECAD_portugal/README.md) document.
-
-
-### Analysis Workflow
-![](data_analysis_workflow.png)
-
-- For a given day, the scenarios are generated by clustering the data from the same season (K-medoid clustering). This data is/was already available in the original dataset.
-
-- The stochastic optimization aims to minimize the expected cost considering the uncertainty in real-time prices, and its performance is evaluated against the perfect foresight optimization to assess its effectiveness.
-
-**Note**: The infographic is generated with ChatGPT. While the general workflow is correct, some details may be inaccurate. See the [scripts](./scripts/), [docs](./docs/) and the [make](./Makefile) file for the exact logic and data used in each step.
-
-
-### MILP (Mixed-Integer Linear Programming)
-_Pyomo_ is used for modeling the optimization problems, and different solvers depending on the size and complexity of the problem. The solvers need to be installed separately, read the corresponding documentation for installation instructions.
-- [**GLPK**](https://www.gnu.org/software/glpk/): For small to medium-sized problems (e.g., deterministic optimization, stochastic optimization with a small number of scenarios, over days or weeks).
-- [**SCIP**](https://scipopt.org/): For larger problems (e.g., stochastic optimization with a large number of scenarios, or when integer variables are involved, over months or longer).
-
-## Results and Visualization
-The cost incurred by the different optimization approaches is compared i.e. the cost of the perfect foresight optimization vs the cost of the stochastic optimization and its evaluation.
-- When compared day to day, the cost of the perfect foresight optimization can be higher or lower than the stochastic optimization, depending on how well the scenarios capture the uncertainty and how the real-time prices evolve. However, when looking at the cumulative cost over a longer period (e.g., a year), the perfect foresight optimization should ideally have the lowest cost, as observed in the results, as it has complete information about the future.
-- Using more scenenarios in the stochastic optimization generally leads to better performance (lower cost) as it captures a wider range of possible future outcomes, but it also increases computational complexity. **The results show that using 9 scenarios leads to a lower cost compared to using 3 scenarios.**
-
-Based on one year data, where the optimization is performed day by day, with the assumed real-time price generation and example BESS parameters, the results are as follows:
-| Optimization Approach | Total Cost (EUR) | Difference from Perfect Foresight (%) |
-|-----------------------|------------------|---------------------------------------|
-| Perfect Foresight     | €1,504,581.45 | 0.00% |
-| Policy from Stochastic Optimization (3 scenarios) | €1,516,503.66 | +0.79% |
-| Policy from Stochastic Optimization (9 scenarios) | €1,512,793.09 | +0.54% |
-
-
-**Note:** The actual costs and differences may vary based on the specific data, parameters, and assumptions used in the optimization. The above values may differ slights with each run due to the noise simulation while generating real-time energy prices.
-
-### Web App for Visualization
-A web application is developed using [`Streamlit`](https://streamlit.io/) to visualize the results and compare the costs incurred by the different optimization approaches. The app allows users to select different time periods (e.g., start and end dates) and compare the costs incurred.
-
-![](./screenshot_results_explorer.png)
-
-To run the web app, use:
-```bash
-> make app
-```
-This could take a while to start on the first run, as it also generates the data if not already available. Once the app is running, you can access it at `http://localhost:8501/` in your web browser.

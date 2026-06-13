@@ -37,7 +37,7 @@ Below is an example of a modern EMS implementation:
                  │
                  ▼
 ★★★★ PROJECT FOCUS [Two-Stage MILP Solver] ★★★★
-                 └──► Minimizes: $Cost_{Grid} + Penalty_{Degradation}$
+                 └──► Minimizes: $Cost_{Grid} + Degradation_{Battery}$
                  │
                  ▼
 [Receding Horizon Execution (Apply Step 1, Repeat in 15 mins)]
@@ -50,7 +50,7 @@ This project mainly focuses on the **optimization module**, with the objective t
 
 - ingesting and preprocessing historical household data from open source datasets [[1](https://doi.org/10.5281/zenodo.14918474), [2](https://doi.org/10.1038/s41597-022-01156-1)], and energy prices from SMARD
 - comparing different optimization solvers (e.g., GLPK, SCIP) and using them via **Pyomo**
-- implement **K-medoids clustering** for scenario reduction
+- implementing **K-medoids clustering** for scenario reduction
 - implementing a **two-stage stochastic optimization** using **mixed-integer linear programming** (MILP) to optimize the *battery schedule*
 - evaluating the performance of two-stage stochastic optimization against perfect foresight
 - (later) implementing and comparing various machine learning techniques for forecasting and scenario generation
@@ -76,13 +76,19 @@ The study combines two independent datasets:
 
 The analysis assumes that household consumption and PV generation patterns observed in 2019 remain representative under 2025 market conditions.
 
+#### Strategy
+The implemented EMS strategy focuses on **day-ahead battery dispatch scheduling**: it returns the battery schedule for the next day and then follows the schedule without any adjustments during the day. If the load is more or the PV generation is less than expected, the grid import and cost would rise, and vice versa.
+
+An alternative strategy is to schedule and fix the **day-ahead grid exchange** (import/export) instead. That approach typically requires adjusting the battery schedule during execution and in extreme cases, load shedding or curtailing PV generation to meet the fixed grid exchange schedule. As this is undesirable, this strategy is not implemented in this project but can be explored in future work.
+
 #### Target Variable
 
 The target variable is the *percentage cost saved* by using a battery energy storage system together with an EMS, compared to a baseline scenario without battery storage.
 
-$$\text{Cost Savings (\%)} = \frac{\text{Cost}_{\text{no battery}} - \text{Cost}_{\text{with battery + EMS}}}{\text{Cost}_{\text{no battery}}} \times 100\%$$
+<!-- percentage symbol has to be \\% for github with double backslash to escape the % character in markdown. -->
+$$\text{Cost Savings (\\%)} = \frac{\text{Cost}_{\text{no battery}} - \text{Cost}_{\text{with battery + EMS}}}{\text{Cost}_{\text{no battery}}} \times 100$$
 
-**NOTE:** *The implemented EMS strategy is not a full-fledged product, but only focuses on the day-ahead battery scheduling. Ideally, the cost savings should be evaluated against a more realistic baseline (e.g., a simple rule-based strategy) rather than the no-battery scenario, but this is left for future work.* 
+**NOTE:** The implemented EMS strategy is not a full-fledged system, but only focuses on the day-ahead battery scheduling. *Ideally, the cost savings here should be evaluated against a baseline with a battery (e.g., a simple rule-based strategy) rather than the no-battery scenario, but this is left for future work.* 
 
 ### Workflow
 ![Workflow image](./data_analysis_workflow_2.png)
@@ -90,18 +96,48 @@ $$\text{Cost Savings (\%)} = \frac{\text{Cost}_{\text{no battery}} - \text{Cost}
 **NOTE:** The infographic is generated with ChatGPT. While the general workflow is correct, some details may be inaccurate. See the [scripts](./scripts/), [docs](./docs/) and the [make](./Makefile) file for the exact logic and data used in each step.
 
 
-## *how much money can be saved?* (Experiments and Backtesting)
+## *how much money can be saved?* (Results)
 
-Considering a household on a dynamic electricity tariff with a PV system and a BESS, the cost savings from using an EMS depend on various factors, including the size of the PV system, the capacity of the battery, etc. However, from historical or forecasted data, we can get an estimate of the potential savings.
+- Considering a household on a dynamic electricity tariff with a PV system and a BESS, the cost savings from using an EMS depend on various factors, including the size of the PV system, the capacity of the battery, etc. Read [] for the configuration parameters used in the experiments. 
 
-https://abhich98-esms.streamlit.app/, use the web app to upload your own data or use the provided historical data to see the potential cost savings.
+- Since the prices considered in the experiments are derived and built on assumptions, the absolute cost savings (e.g., in euros) may not be meaningful. Instead, relative cost savings (e.g., percentage reduction) are more informative. **NO CLAIMS ARE MADE**.
 
-> NOTE: It is better to look at the *relative* cost savings (e.g., percentage reduction) rather than the absolute cost savings, as the fixed costs (e.g., grid connection fee) were not included in the calculation and can vary widely across households. NO CLAIMS OR GUARANTEES ARE MADE.
+### Uncertainty Modelling and Cost Savings
+![Cost savings vs number of scenarios](./data/data_household_germany/generated/cost_reduction_vs_scenarios.png)
+
+### Key Performance Indicators
+
+| Metric/Key | No Battery | **Battery + (best) Stochastic Policy** | Battery + Perfect Foresight |
+|---|---:|---:|---:|
+| **System Inputs (same)** |  |
+| dt_hours | 0.25 | 0.25 | 0.25 |
+| total_load_kwh | 7706.76 | 7706.76 | 7706.76 |
+| total_pv_generation_kwh | 3619.09 | 3619.09 | 3619.09 |
+| **Costs** |  |  |  |
+| total_eur | 2015.83 | 1937.88 | 1775.69 |
+| net_grid_eur | 2015.83 | 1850.36 | 1668.51 |
+| battery_degradation_eur | 0.00 | 87.52 | 107.18 |
+| reduction (%) | 0.00 | **3.87** | 11.91 |
+| **Performance KPIs** |  |  |  |
+| self_consumption_ratio | 0.49 | **0.63** | 0.77 |
+| self_sufficiency_ratio | 0.23 | **0.29** | 0.36 |
+| grid_dependency_ratio | 0.77 | **0.73** | 0.65 |
+| **Battery Usage** |  |  |  |
+| battery_throughput_kwh | 0.00 | 1750.41 | 2143.55 |
+| estimated_equivalent_cycles | 0.00 | 105.65 | 119.09 |
+
+<!-- | total_grid_import_kwh | 5933.80 | 5590.43 | 5027.15 |
+| total_grid_export_kwh | 1846.13 | 1413.05 | 829.62 |
+| pv_self_consumed_kwh | 1772.96 | 2281.62 | 2789.47 | 
+| load_served_locally_kwh | 1772.96 | 2263.82 | 2781.03 | -->
+
+### Daily Cost Comparison
+![Cost savings over time](./data/data_household_germany/generated/daily_costs.png)
 
 ## 🔧 Development
 ### Python and libraries
 
-The project is developed in Python, using libraries such as Pyomo for optimization modeling, FastAPI for web API development, and pandas for data manipulation. The project is structured in a modular way, with separate directories for optimization engines, models, API, and services.
+The project is developed in Python, using libraries such as Pyomo for optimization modeling, FastAPI for web API development, pandas for data manipulation, and other packages. The project is structured in a modular way, with separate directories for optimization engines, models, API, and services.
 
 `uv` is used to manage the virtual environment and dependencies.
 Install `uv` with `pip` and then sync the environment with the dependencies specified in `pyproject.toml`:

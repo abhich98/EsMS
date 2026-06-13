@@ -138,7 +138,7 @@ def test_gecad_data():
     )
 
     # Load battery configuration
-    with open("examples/sample_BESS.json", "r") as f:
+    with open("config/sample_BESS.json", "r") as f:
         batteries = json.load(f)
 
     # Select a specific day for reproducibility
@@ -183,7 +183,7 @@ def test_germany_data():
     )
 
     # Load battery configuration
-    with open("examples/sonnenBatterie10.json", "r") as f:
+    with open("config/sonnenBatterie10.json", "r") as f:
         batteries = json.load(f)
 
     # Select a specific day for reproducibility

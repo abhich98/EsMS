@@ -4,13 +4,13 @@ DATASET_VERSION := 1.2.0
 YEAR := 2025
 GROUND_TRUTH_FILE := $(DATA_DIR)/Dataset_v$(DATASET_VERSION).xlsx
 
-EXAMPLES_DIR := ./examples
-STOCHASTIC_OPTIMIZATION_CONFIG_FILE := $(EXAMPLES_DIR)/stochastic_optimization_config.yaml
-BESS_FILE := $(EXAMPLES_DIR)/sonnenBatterie10.json
+CONFIG_DIR := ./config
+STOCHASTIC_OPTIMIZATION_CONFIG_FILE := $(CONFIG_DIR)/stochastic_optimization_config.yaml
+BESS_FILE := $(CONFIG_DIR)/sonnenBatterie10.json
 
 SCRIPTS_DIR := ./scripts
 PYTHON := .venv/bin/python
-STOC_OP_SCENARIOS := 3
+STOC_OP_SCENARIOS := 20
 
 WANDB_TRACKING := false
 
@@ -40,4 +40,4 @@ $(GENERATED_DATA_DIR)/stochastic_policy_with_$(STOC_OP_SCENARIOS)_scenarios_$(YE
 	$(PYTHON) $< --data_file $(GROUND_TRUTH_FILE) --battery_file $(BESS_FILE) --config_file $(STOCHASTIC_OPTIMIZATION_CONFIG_FILE) --year $(YEAR) --num_scenarios $(STOC_OP_SCENARIOS) $(WANDB_FLAG) --scenario_output_file $(GENERATED_DATA_DIR)/stochastic_scenario_results_with_$(STOC_OP_SCENARIOS)_scenarios_$(YEAR).csv --output_file $@
 
 $(GENERATED_DATA_DIR)/stochastic_policy_with_$(STOC_OP_SCENARIOS)_scenarios_evaluation_$(YEAR).csv: $(SCRIPTS_DIR)/stochastic_policy_evaluation.py $(GROUND_TRUTH_FILE) $(BESS_FILE) $(GENERATED_DATA_DIR)/stochastic_policy_with_$(STOC_OP_SCENARIOS)_scenarios_$(YEAR).csv
-	$(PYTHON) $< --data_file $(GROUND_TRUTH_FILE) --battery_file $(BESS_FILE) --policy_file $(GENERATED_DATA_DIR)/stochastic_policy_with_$(STOC_OP_SCENARIOS)_scenarios_$(YEAR).csv --start_day_index 0 $(WANDB_FLAG) --output_file $@
+	$(PYTHON) $< --data_file $(GROUND_TRUTH_FILE) --battery_file $(BESS_FILE) --policy_file $(GENERATED_DATA_DIR)/stochastic_policy_with_$(STOC_OP_SCENARIOS)_scenarios_$(YEAR).csv --config_file $(STOCHASTIC_OPTIMIZATION_CONFIG_FILE) --start_day_index 0 $(WANDB_FLAG) --output_file $@

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pandas as pd
 
@@ -456,6 +456,91 @@ class OptimizationCostCalculator:
                 raise ValueError(
                     f"Unsupported mode '{mode}'. Supported modes: deterministic, stochastic_expected, stochastic_scenarios."
                 )
+
+    def calculate_periodic_deterministic_costs(
+        self,
+        results_df: pd.DataFrame,
+        battery_file: str | Path | None = None,
+        period: Literal["day", "month"] = "day",
+        datetime_col: str = "Date",
+    ) -> pd.DataFrame:
+        if results_df.empty:
+            raise ValueError("results_df is empty")
+
+        if period not in {"day", "month"}:
+            raise ValueError("period must be either 'day' or 'month'")
+
+        # Grid costs and revenue
+        required_cols = ["import_price", "export_price", "grid_import", "grid_export"]
+        missing_cols = [col for col in required_cols if col not in results_df.columns]
+        if missing_cols:
+            raise ValueError(
+                "Deterministic periodic cost calculation needs columns: "
+                f"{required_cols}. Missing: {missing_cols}"
+            )
+
+        if datetime_col in results_df.columns:
+            timestamps = pd.to_datetime(results_df[datetime_col], errors="coerce")
+        else:
+            raise ValueError(
+                f"datetime_col '{datetime_col}' not found and DataFrame index is not a DatetimeIndex"
+            )
+
+        if timestamps.isna().any():
+            raise ValueError("Datetime conversion failed for one or more rows")
+
+        work_df = pd.DataFrame(
+            {
+                "timestamp": timestamps,
+                "import_cost": (
+                    pd.to_numeric(results_df["import_price"], errors="coerce").fillna(0.0)
+                    * pd.to_numeric(results_df["grid_import"], errors="coerce").fillna(0.0)
+                    * self.dt_hours
+                ),
+                "export_revenue": (
+                    pd.to_numeric(results_df["export_price"], errors="coerce").fillna(0.0)
+                    * pd.to_numeric(results_df["grid_export"], errors="coerce").fillna(0.0)
+                    * self.dt_hours
+                ),
+            }
+        )
+        work_df["net_energy_cost"] = work_df["import_cost"] - work_df["export_revenue"]
+        work_df["total_cost"] = work_df["net_energy_cost"]
+
+        # Battery degradation costs
+        if battery_file is not None:
+            degradation_costs = self._load_battery_degradation_map(battery_file)
+            battery_cols = []
+            for battery_id, deg_cost in degradation_costs.items():
+                charge_col = f"{battery_id}_charge"
+                discharge_col = f"{battery_id}_discharge"
+
+                if charge_col not in results_df.columns or discharge_col not in results_df.columns:
+                    raise ValueError(
+                        f"Missing '{charge_col}'/'{discharge_col}'; degradation for {battery_id} set to 0."
+                    )
+
+                work_df[f"{battery_id}_cost"] = (
+                    pd.to_numeric(results_df[charge_col], errors="coerce").fillna(0.0)
+                    + pd.to_numeric(results_df[discharge_col], errors="coerce").fillna(0.0)
+                ) * deg_cost * self.dt_hours
+
+                work_df["total_cost"] += work_df[f"{battery_id}_cost"]
+                battery_cols.append(f"{battery_id}_cost")
+
+        if period == "day":
+            work_df["period_start"] = work_df["timestamp"].dt.floor("D")
+        else:
+            work_df["period_start"] = work_df["timestamp"].dt.to_period("M").dt.to_timestamp()
+
+        return (
+            work_df.groupby("period_start", as_index=False)[
+                ["import_cost", "export_revenue", "net_energy_cost", "total_cost"] + battery_cols
+            ]
+            .sum()
+            .sort_values("period_start")
+            .reset_index(drop=True)
+        )
 
     def calculate_from_files(
         self,

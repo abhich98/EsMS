@@ -3,7 +3,7 @@ household_id: SFH9
 PV_ratio: 15 / 58 # Number of modules assumed / number of modules in the PV system, to scale the PV generation to the household load
 
 year: 2025
-time_delta: 0.25 # in hours
+timestep_hrs: 0.25 # in hours
 prices_fixed_comp_euro_kwh: 0.247 # in €/kWh, to be added to the spot market price to create a more realistic dynamic tariff for the optimization model
 
 input:

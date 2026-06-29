@@ -4,7 +4,7 @@ from importlib.metadata import version, PackageNotFoundError
 
 from .models import Battery
 from .optimization import EnergyOptimizer, StochasticEnergyOptimizer
-from .utils import SUGGESTED_SOLVERS, get_available_pyomo_solvers, simulate_rt_prices
+from .utils import SUGGESTED_SOLVERS, get_available_pyomo_solvers, build_batteries
 
 try:
     __version__ = version("esms")
@@ -17,6 +17,6 @@ __all__ = [
     "StochasticEnergyOptimizer",
     "SUGGESTED_SOLVERS",
     "get_available_pyomo_solvers",
-    "simulate_rt_prices",
+    "build_batteries",
     "__version__",
 ]

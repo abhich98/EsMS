@@ -1,0 +1,11 @@
+# config params to split data for backtesting and holdout
+
+start_day_index: 90
+num_days: 275
+
+holdout_days: 60 # should be less than num_days
+
+random_seed: 3
+
+output:
+  directory: data/data_household_germany/generated

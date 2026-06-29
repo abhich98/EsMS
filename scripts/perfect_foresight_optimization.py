@@ -16,7 +16,7 @@ from joblib import Parallel, delayed
 
 from esms.models import Battery
 from esms.optimization import EnergyOptimizer
-from esms.utils import get_available_pyomo_solvers
+from esms.utils import get_available_pyomo_solvers, build_batteries
 
 # Setup logging
 logging.basicConfig(
@@ -24,11 +24,6 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("Perfect Foresight Optim.")
-
-
-def build_batteries(battery_specs: List[Dict[str, Any]]) -> List[Battery]:
-    """Create Battery objects from specifications."""
-    return [Battery(**spec) for spec in battery_specs]
 
 
 def solve_day_deterministic(
@@ -151,8 +146,8 @@ def main():
         ignore_index=True
     )
     time_series_diff_hours = time_series.diff().dt.total_seconds() / 3600.0
-    time_res_hrs = time_series_diff_hours.mode()[0]
-    time_points_per_day = int(24 / time_res_hrs)
+    timestep_hrs = time_series_diff_hours.mode()[0]
+    time_points_per_day = int(round(24 / timestep_hrs))
 
     # Get date range
     start_date = data_df.iloc[day_idx * time_points_per_day]["Date"].date()
@@ -182,7 +177,7 @@ def main():
                 ],
                 battery_specs=deepcopy(def_battery_specs),
                 solver=solver_to_use,
-                timestep_hours=time_res_hrs,
+                timestep_hours=timestep_hrs,
             )
             for i in range(num_days)
         )

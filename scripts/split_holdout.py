@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-from household_battery.split import make_noncontiguous_holdout, SplitMeta, persist_split
+from household_battery.split import make_noncontiguous_holdout, persist_split
 
 
 def parse_args() -> argparse.Namespace:

@@ -17,7 +17,7 @@ class PromotionRules:
 
 def wilcoxon_pvalue(daily_deltas: np.ndarray) -> float:
     try:
-        from scipy.stats import wilcoxon  # type: ignore
+        from scipy.stats import wilcoxon
 
         stat, p = wilcoxon(daily_deltas)
         return float(p)

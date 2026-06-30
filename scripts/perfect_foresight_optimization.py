@@ -4,7 +4,6 @@ Runs deterministic optimization for each day in a specified time period in paral
 """
 
 import logging
-import numpy as np
 import pandas as pd
 import json
 import datetime
@@ -14,7 +13,6 @@ from copy import deepcopy
 
 from joblib import Parallel, delayed
 
-from esms.models import Battery
 from esms.optimization import EnergyOptimizer
 from esms.utils import get_available_pyomo_solvers, build_batteries
 
@@ -201,7 +199,7 @@ def main():
         results_df.to_csv(args.output_file)
         logger.info(f"Results saved to {args.output_file}")
 
-        logger.info(f"First 5 timesteps:")
+        logger.info("First 5 timesteps:")
         logger.info(results_df.head(5))
         logger.info("=" * 60)
 

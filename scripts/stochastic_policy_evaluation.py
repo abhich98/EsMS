@@ -221,7 +221,7 @@ def main():
     config["solver"] = solver_to_use
 
     config["wandb"]["enabled"] = args.wandb_track
-    config["wandb"]["run_name"] = f"stochastic_policy_eval_2"
+    config["wandb"]["run_name"] = "stochastic_policy_eval_2"
 
     wandb_run = init_wandb(config=config)
 
@@ -286,7 +286,7 @@ def main():
         results_df.to_csv(args.output_file)
         logger.info(f"Results saved to {args.output_file}")
 
-        logger.info(f"First 5 timesteps:")
+        logger.info("First 5 timesteps:")
         logger.info(results_df.head(5))
         logger.info("=" * 60)
 

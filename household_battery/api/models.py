@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
-from typing import Optional, List
 
 from esms.models.battery import Battery
 
@@ -22,7 +23,7 @@ class ChampionPolicy(BaseModel):
     seed: Optional[int] = None
 
 
-class ChampionRequest(BaseModel):
+class StochasticRequest(BaseModel):
     batteries: List[Battery]
     history_csv: str = Field(
         ..., description="CSV content with past days of pv/load as text"

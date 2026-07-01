@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from household_battery.api import VERSION
 
 from .routes import router
 
@@ -13,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Household Day-Ahead Battery Scheduling API",
-    description="Blocking endpoints for deterministic and champion-based day-ahead battery scheduling",
-    version="0.2.0",
+    description="Blocking endpoints for deterministic and stochastic day-ahead battery scheduling",
+    version=VERSION,
 )
 
 app.add_middleware(

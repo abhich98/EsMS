@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 import io
-import pandas as pd
-from typing import List
+import logging
 import math
+from typing import List
+
+import pandas as pd
 
 from esms.models import Battery
-from household_battery.policies import PolicySpec, load_champion_local
 from household_battery.backtest import run_deterministic_schedule, run_expected_schedule
+from household_battery.policies import PolicySpec, load_champion_local
+
 from .errors import DataValidationError
+
+logger = logging.getLogger(__name__)
 
 
 def _batteries_from_specs(specs: List[dict]) -> List[Battery]:
@@ -57,7 +62,7 @@ def run_dayahead_deterministic(
     return sched.reset_index()
 
 
-def run_dayahead_champion(
+def run_dayahead_stochastic(
     batteries_specs: List[dict],
     history_csv_text: str,
     ahead_prices_csv_text: str,
@@ -83,8 +88,8 @@ def run_dayahead_champion(
                 "Ahead prices 'Date' column must be sorted in ascending order"
             )
         if not math.isclose(
-            hist["Date"].diff().mode(dropna=True)[0],
-            ahead["Date"].diff().mode(dropna=True)[0],
+            hist["Date"].diff().dt.total_seconds().mode(dropna=True)[0],
+            ahead["Date"].diff().dt.total_seconds().mode(dropna=True)[0],
         ):
             raise DataValidationError(
                 "History and ahead prices 'Date' columns must have the same timestep"
@@ -128,6 +133,18 @@ def run_dayahead_champion(
     ahead["pv"] = 0.0
     ahead["load"] = 0.0
     dataset = pd.concat([hist, ahead], axis=0, ignore_index=True)
+    logger.info(
+        "Running champion policy '%s' on day %s with history_days=%d, num_scenarios=%d",
+        spec.id,
+        day.strftime("%Y-%m-%d"),
+        spec.history_days,
+        spec.num_scenarios,
+    )
+    logger.info(
+        "Provided %s days of history data, shape: %s",
+        hist["Date"].dt.date.nunique(),
+        hist.shape,
+    )
 
     # Calculate schedule for single-day using champion policy
     bats = _batteries_from_specs(batteries_specs)

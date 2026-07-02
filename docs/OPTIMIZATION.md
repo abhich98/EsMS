@@ -48,10 +48,10 @@ The grid variable $G_t$ is split into import/export with mutual exclusivity enfo
 
 Minimize total energy cost plus linear battery degradation cost:
 
-$$
+```math
 \min \sum_{t\in\mathcal{T}} \left( \pi_t^{\text{imp}} G_t^{\text{imp}} - \pi_t^{\text{exp}} G_t^{\text{exp}} \right)\Delta t
 + \sum_{b\in\mathcal{B}} \sum_{t\in\mathcal{T}} c_b^{\text{deg}} \left(P_{b,t}^{\text{ch}} + P_{b,t}^{\text{dis}}\right)\Delta t
-$$
+```
 
 The second term penalizes battery throughput, so each unit of charged or discharged energy carries a linear degradation cost.
 
@@ -155,18 +155,18 @@ If any price are not provided, implementation sets them to 0.
 ### Objective (expected total cost)
 Multi-objective: minimize expected total cost across scenarios, including energy cost and battery degradation cost.
 
-$$
+```math
 \text{ahead\_cost} = \sum_{t\in\mathcal{T}} \left( \pi_t^{\text{ahead,imp}} G_t^{\text{ahead,imp}} - \pi_t^{\text{ahead,exp}} G_t^{\text{ahead,exp}}\right) \Delta t +
 \sum_{b\in\mathcal{B}} \sum_{t\in\mathcal{T}} c_b^{\text{deg}} \left(P_{b,t}^{\text{ahead,ch}} + P_{b,t}^{\text{ahead,dis}}\right)\Delta t
-$$
-$$
+```
+```math
 \text{rt\_cost}_s = \sum_{t\in\mathcal{T}}\left( \pi_{s,t}^{\text{rt,imp}} G_{s,t}^{\text{rt,imp}} - \pi_{s,t}^{\text{rt,exp}} G_{s,t}^{\text{rt,exp}} \right)\Delta t
 + \sum_{b\in\mathcal{B}} \sum_{t\in\mathcal{T}} c_b^{\text{deg}} \left(P_{b,s,t}^{\text{rt,ch}} + P_{b,s,t}^{\text{rt,dis}}\right)\Delta t
-$$
+```
 
-$$
+```math
 \boxed{\min \quad \left(\text{ahead\_cost} + \sum_{s\in\mathcal{S}} p_s \cdot \text{rt\_cost}_s \right)}
-$$
+```
 
 ### Constraints
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -70,6 +70,10 @@ class BaseEnergyOptimizer(ABC):
 
         if len(self.batteries) == 0:
             raise ValueError("At least one battery must be provided")
+
+        battery_ids = [b.id for b in self.batteries]
+        if len(battery_ids) != len(set(battery_ids)):
+            raise ValueError("Battery IDs must be unique")
 
         if self.timestep_hours <= 0:
             raise ValueError("timestep_hours must be positive")

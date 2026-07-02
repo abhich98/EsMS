@@ -1,248 +1,199 @@
-REST API for day-ahead or long-term energy optimization with multi-battery systems, PV generation, and grid interaction.
+REST API for household day-ahead battery scheduling built on top of `esms`.
 
-The application is live and deployed at `ESMS_URL` = https://esms-chft.onrender.com/ . Alternatively, you can run it locally using Docker or directly with Python.
+Production base URL: `https://esms-chft.onrender.com`
+Local base URL: `http://localhost:8000`
 
-## 🚀 Quick Start
+## Deterministic vs stochastic API: purpose and methodology
 
-### Using Docker (Recommended)
+- **Deterministic API** (`/dayahead/deterministic`): use this when you have one best estimate for tomorrow (`pv`, `load`, `import_price`) and want a schedule based on that single forecast.
+- **Stochastic API** (`/dayahead/stochastic`): use this when tomorrow is uncertain. It combines recent `pv/load` history, next-day prices, and a champion policy (optionally overridden) to produce an expected schedule that is usually more robust.
+- **Quick rule of thumb**:
+  - choose deterministic for a single trusted forecast;
+  - choose stochastic when uncertainty is significant and you want robustness.
 
-Download the repository, enter the `esms` directory, and run:
+## Local development
+Run locally with Docker:
 
 ```bash
-# Build and start the API
-docker-compose up -d
-
-# Check health
-curl http://localhost:8000/health
-
-# View API documentation
-open http://localhost:8000/docs
+docker compose up -d
+curl -s http://localhost:8000/health | jq
 ```
 
-In which case, `ESMS_URL` = http://localhost:8000/ .
+Open docs:
 
-## 📡 API Usage
+```bash
+xdg-open http://localhost:8000/docs
+```
 
-> Replace [[ESMS_URL]] with the actual URL of your choice i.e, live deployment or local instance.
-
-### Endpoints
+## 📡 Endpoints
 
 | Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/optimize` | POST | Run energy optimization |
-| `/stochastic-optimize` | POST | Run stochastic optimization from explicit scenarios |
-| `/docs` | GET | Interactive API documentation |
+|---|---|---|
+| `/health` | GET | Service, solver, and champion-policy status |
+| `/dayahead/deterministic` | POST | Deterministic day-ahead scheduling (JSON body) |
+| `/dayahead/deterministic/upload` | POST | Deterministic scheduling from uploaded files (CSV output) |
+| `/dayahead/stochastic` | POST | Stochastic day-ahead scheduling (JSON body) |
+| `/dayahead/stochastic/upload` | POST | Stochastic scheduling from uploaded files (CSV output) |
+| `/docs` | GET | Interactive OpenAPI docs |
 
-### Optimization Request
+### Recommended usage pattern
 
-**Required Files:**
-1. `batteries.json` - Battery configuration
-2. `forecasts.csv` - Time series forecasts
-3. `fix_decision_vars.csv` (optional) - Fix certain decision variables during optimization
-4. `config.json` - Solver configuration (optional)
+- Use JSON-body endpoints for programmatic clients and automation code.
+- Use upload endpoints for CLI/file-based workflows (`curl -F ... @file`).
 
-#### Example Request
+## Request contracts
 
-```bash
-curl -X POST [[ESMS_URL]]/optimize \
-  -F "batteries_json=@batteries.json" \
-  -F "forecasts_csv=@forecasts.csv" \
-  -F "fix_decision_vars_csv=@fix_decision_vars.csv" \
-  -F "config_json=@config.json" \
-  -o schedule.csv
-```
+### 1) POST `/dayahead/deterministic` (JSON)
 
-#### Using Python
+Body fields:
+- `batteries` (array of battery objects)
+- `forecasts_csv` (string; CSV text)
+- `timestep_hours` (optional float)
+
+`forecasts_csv` must include columns:
+- `pv`, `load`, `import_price`
+- optional `Date` (if missing, pass `timestep_hours`)
+
+Example:
 
 ```python
 import requests
 
-files = {
-    'batteries_json': open('batteries.json', 'rb'),
-    'forecasts_csv': open('forecasts.csv', 'rb'),
-    'fix_decision_vars_csv': open('fix_decision_vars.csv', 'rb'),
-    'config_json': open('config.json', 'rb')
+base_url = "https://esms-chft.onrender.com"
+payload = {
+  "batteries": [
+    {
+      "id": "battery_1",
+      "capacity": 10.0,
+      "max_charge": 5.0,
+      "max_discharge": 5.0,
+      "charge_efficiency": 0.95,
+      "discharge_efficiency": 0.95,
+      "initial_soc": 5.0,
+    }
+  ],
+  "forecasts_csv": "Date,pv,load,import_price\n2026-01-01 00:00:00,0.0,1.5,0.18\n",
+  "timestep_hours": 0.25,
 }
 
-response = requests.post(f'[[ESMS_URL]]/optimize', files=files)
-
-with open('schedule.csv', 'wb') as f:
-    f.write(response.content)
+response = requests.post(f"{base_url}/dayahead/deterministic", json=payload, timeout=120)
+response.raise_for_status()
+print(response.json())
 ```
 
-### Stochastic Optimization Request
+Response: JSON object with column arrays (schedule table by columns).
 
-**Required Files:**
-1. `batteries.json` - Battery configuration
-2. `scenarios.csv` - Explicit scenario inputs
-3. `ahead_prices.csv` - Shared ahead prices per timestep
-4. `config.json` - Solver configuration (optional)
+### 2) POST `/dayahead/deterministic/upload` (multipart)
 
-#### Example Request
+Form parts:
+- `batteries_json` (JSON file)
+- `forecasts_csv` (CSV file)
+- `timestep_hours` (optional float)
+
+Example:
 
 ```bash
-curl -X POST [[ESMS_URL]]/stochastic-optimize \
-  -F "batteries_json=@batteries.json" \
-  -F "scenarios_csv=@scenarios.csv" \
-  -F "ahead_prices_csv=@ahead_prices.csv" \
-  -F "config_json=@config.json" \
-  -o stochastic_schedule.csv
-```
-
----
-
-## 📄 Input File Formats
-
-### 1. batteries.json
-
-Array of battery configurations:
-
-```json
-[
-  {
-    "id": "battery_1",
-    "capacity": 100.0,
-    "max_charge": 50.0,
-    "max_discharge": 50.0,
-    "charge_efficiency": 0.95,
-    "discharge_efficiency": 0.95,
-    "initial_soc": 50.0,
-    "min_soc": 10.0,
-    "max_soc": 100.0,
-    "degradation_cost": 0.04,
-  }
-]
-```
-
-**Fields:**
-- `id` (string): Unique battery identifier
-- `capacity` (float): Total energy capacity in kWh
-- `max_charge` (float): Maximum charging power in kW
-- `max_discharge` (float): Maximum discharging power in kW
-- `charge_efficiency` (float): Charging efficiency (0-1)
-- `discharge_efficiency` (float): Discharging efficiency (0-1)
-- `initial_soc` (float): Initial state of charge in kWh
-- `min_soc` (float, optional): Minimum SOC in kWh (default: 0)
-- `max_soc` (float, optional): Maximum SOC in kWh (default: capacity)
-- `degradation_cost` (float, optional): Degradation cost per kWh cycled in EUR/kWh (default: 0)
-
-### 2. forecasts.csv
-
-Time series with required columns:
-
-```csv
-timestep,pv,load,price,export_price
-0,0.0,30.0,0.10,0.08
-1,5.0,32.0,0.11,0.08
-...
-```
-
-**Columns:**
-
-### 3. scenarios.csv
-
-Scenario-wise time series with required columns:
-
-```csv
-timestamp,scenario,probability,pv,load,import_price_rt,export_price_rt
-2025-01-01 00:00:00,0,0.5,0.0,30.0,0.12,0.00
-2025-01-01 00:15:00,0,0.5,0.1,29.5,0.13,0.00
-2025-01-01 00:00:00,1,0.5,0.0,31.0,0.11,0.00
-...
-```
-
-**Columns:**
-- `timestamp` or `Date`: Timestep timestamp. Must match across scenarios.
-- `scenario`: Scenario identifier.
-- `probability`: Scenario probability. Must be constant within each scenario and sum to 1 across scenarios.
-- `pv`: PV generation in kW.
-- `load`: Load in kW.
-- `import_price_rt` or `import_price_realtime`: Real-time import price in EUR/kWh.
-- `export_price_rt` or `export_price_realtime` (optional): Real-time export price in EUR/kWh. Defaults to 0.
-
-### 4. ahead_prices.csv
-
-Shared ahead-price time series:
-
-```csv
-timestamp,import_price_ahead,export_price_ahead
-2025-01-01 00:00:00,0.10,0.00
-2025-01-01 00:15:00,0.11,0.00
-...
-```
-
-**Columns:**
-- `timestamp` or `Date`: Timestep timestamp. Must match the scenario timestamps exactly.
-- `import_price_ahead`: Ahead import price in EUR/kWh.
-- `export_price_ahead` (optional): Ahead export price in EUR/kWh. Defaults to 0.
-- `pv` (float): PV generation forecast in kW
-- `load` (float): Load demand forecast in kW
-- `price` (float): Electricity import price in EUR/kWh
-- `export_price` (float, optional): Export price in EUR/kWh
-
-### 3. config.json (Optional)
-
-Solver configuration:
-
-```json
-{
-  "solver": "scip",
-  "timestep_hours": 1.0,
-  "verbose": false,
-  "opts": {
-    "mip_gap": 0.01,
-    "time_limit": 60
-  }
-}
-```
-
-**Fields:**
-- `solver` (string): Solver name - `scip` (default), `glpk`, `cbc`
-- `timestep_hours` (float): Duration of each timestep in hours (default: 1.0)
-- `verbose` (bool): Show solver output (default: false)
-- `opts` (dict): Additional solver options (e.g., `mip_gap`, `time_limit`)
-
-## 📤 Output Format
-
-Returns CSV with optimization schedule:
-
-```csv
-timestep,pv,load,price,export_price,battery_1_battery_power,battery_1_soc,grid_import,grid_export
-0,0.0,30.0,0.10,0.08,25.0,75.0,5.0,0.0
-1,5.0,32.0,0.11,0.08,-10.0,65.0,37.0,0.0
-...
-```
-
-**Columns:**
-- Input data: `pv`, `load`, `price`, `export_price`
-- Per battery: `{battery_id}_battery_power`, `{battery_id}_soc`
-  - `battery_power`: Positive = charging, Negative = discharging (kW)
-  - `soc`: State of charge (kWh)
-- Grid: `grid_import`, `grid_export` (kW)
-
-
-## 🧪 Testing
-
-### Example Files
-
-Sample input files are in `examples/api/`:
-
-```bash
-cd examples/api
-./test_api.sh
-```
-
-### Manual Test
-
-```bash
-# 1. Run optimization
-curl -X POST [[ESMS_URL]]/optimize \
+curl -X POST https://esms-chft.onrender.com/dayahead/deterministic/upload \
   -F "batteries_json=@examples/api/batteries.json" \
   -F "forecasts_csv=@examples/api/forecasts.csv" \
-  -F "config_json=@examples/api/config.json" \
-  -o schedule.csv
-
-# 2. View results
-head -20 schedule.csv
+  -F "timestep_hours=0.25" \
+  -o dayahead_deterministic_schedule.csv
 ```
+
+Response: downloadable CSV file.
+
+### 3) POST `/dayahead/stochastic` (JSON)
+
+Body fields:
+- `batteries` (array of battery objects)
+- `history_csv` (string; CSV text)
+- `ahead_prices_csv` (string; CSV text)
+- `policy_override` (optional object)
+- `timestep_hours` (optional float)
+
+Required CSV columns:
+- `history_csv`: `pv`, `load` (+ optional `Date`)
+- `ahead_prices_csv`: `import_price` (+ optional `Date`)
+
+If `Date` exists in both CSVs, timesteps must match and history must end before ahead period.
+If `Date` is missing, pass `timestep_hours`.
+
+Example:
+
+```python
+import requests
+
+base_url = "https://esms-chft.onrender.com"
+payload = {
+  "batteries": [
+    {
+      "id": "battery_1",
+      "capacity": 10.0,
+      "max_charge": 5.0,
+      "max_discharge": 5.0,
+      "charge_efficiency": 0.95,
+      "discharge_efficiency": 0.95,
+      "initial_soc": 5.0,
+    }
+  ],
+  "history_csv": "Date,pv,load\n2025-12-31 00:00:00,0.0,1.2\n",
+  "ahead_prices_csv": "Date,import_price\n2026-01-01 00:00:00,0.18\n",
+  "policy_override": {
+    "history_days": 3,
+    "num_scenarios": 10,
+    "pv_coeff": 0.5,
+    "load_coeff": 0.5,
+    "solver": "scip",
+  },
+  "timestep_hours": 0.25,
+}
+
+response = requests.post(f"{base_url}/dayahead/stochastic", json=payload, timeout=120)
+response.raise_for_status()
+print(response.json())
+```
+
+Response: JSON object with column arrays (schedule table by columns).
+
+### 4) POST `/dayahead/stochastic/upload` (multipart)
+
+Form parts:
+- `batteries_json` (JSON file)
+- `history_csv` (CSV file)
+- `ahead_prices_csv` (CSV file)
+- `policy_override_json` (optional JSON file)
+- `timestep_hours` (optional float)
+
+Example:
+
+```bash
+curl -X POST https://esms-chft.onrender.com/dayahead/stochastic/upload \
+  -F "batteries_json=@examples/api/batteries.json" \
+  -F "history_csv=@examples/api/history.csv" \
+  -F "ahead_prices_csv=@examples/api/ahead_prices.csv" \
+  -F "policy_override_json=@examples/api/policy_override.json" \
+  -F "timestep_hours=0.25" \
+  -o dayahead_stochastic_schedule.csv
+```
+
+Response: downloadable CSV file.
+
+## Health response
+
+`GET /health` returns:
+- service metadata and version
+- `available_solvers`
+- `champion_policy.exists`
+- overall status (`Healthy`, `Degraded`, or `Unhealthy`)
+
+## Error handling
+
+- `400`: validation or scheduling failure
+- `503`: champion policy missing (stochastic endpoint)
+- `500`: unexpected health-check failure
+
+## Notes
+
+- Stochastic endpoint requires a valid champion policy file on the server.
+- Ensure all uploaded/text CSVs are UTF-8 encoded.
+- Use `/docs` for the latest schema as code evolves.

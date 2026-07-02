@@ -44,8 +44,8 @@ class StochasticEnergyOptimizer(BaseEnergyOptimizer):
         batteries: List[Battery],
         load_scenarios: np.ndarray,  # Shape: (n_scenarios, n_timesteps)
         pv_scenarios: np.ndarray,  # Shape: (n_scenarios, n_timesteps)
-        import_price_ahead: Sequence[float],  # Forecasted import prices (known)
-        export_price_ahead: Optional[Sequence[float]] = None,
+        import_price_ahead: np.ndarray,  # Forecasted import prices (known)
+        export_price_ahead: Optional[np.ndarray] = None,
         import_price_rt_scenarios: Optional[
             np.ndarray
         ] = None,  # Real-time import prices per scenario (n_scenarios, n_timesteps)

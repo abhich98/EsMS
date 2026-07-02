@@ -10,9 +10,7 @@ import pandas as pd
 import yaml
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-DEFAULT_CONFIG_PATH = (
-    ROOT_DIR / "data" / "data_household_germany" / "data_preparation_config.yaml"
-)
+DEFAULT_CONFIG_PATH = ROOT_DIR / "config" / "data_preparation_config.yaml"
 
 
 logging.basicConfig(
@@ -80,8 +78,8 @@ def read_price_table(
     )
 
 
-def build_dataset(config: dict[str, Any], config_path: Path) -> pd.DataFrame:
-    data_dir = config_path.parent
+def build_dataset(config: dict[str, Any]) -> pd.DataFrame:
+    data_dir = ROOT_DIR / config["input"]["directory"]
     household_id = config["household_id"]
     time_column = config["columns"]["time"]
     power_column = config["columns"]["power"]
@@ -90,11 +88,11 @@ def build_dataset(config: dict[str, Any], config_path: Path) -> pd.DataFrame:
     prices_path = data_dir / config["input"]["prices_file"]
 
     year = config["year"]
-    time_delta = config["time_delta"]
+    timestep_hrs = config["timestep_hrs"]
     time_series = pd.date_range(
         start=f"{year}-01-01 00:00:00",
         end=f"{year}-12-31 23:59:59",
-        freq=pd.Timedelta(hours=time_delta),
+        freq=pd.Timedelta(hours=timestep_hrs),
     )
 
     with h5py.File(hdf5_path, "r") as h5_file:
@@ -209,7 +207,7 @@ def main() -> None:
     version = config["version"]
     logger.info(f"Building dataset version {version} using config at {config_path}")
 
-    dataset = build_dataset(config, config_path)
+    dataset = build_dataset(config)
     output_path = build_output_path(config, version)
     write_dataset(dataset, config, output_path)
 

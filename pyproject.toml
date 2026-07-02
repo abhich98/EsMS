@@ -9,7 +9,6 @@ description = "Energy optimization using Pyomo + FastAPI for household battery s
 readme = "README.md"
 requires-python = ">=3.11,<=3.14"
 dependencies = [
-    "matplotlib>=3.10.8",
     "numpy>=2.4.2",
     "openpyxl>=3.1.5",
     "pandas>=2.2,<3.0",
@@ -31,6 +30,7 @@ frontend = [
     "seaborn>=0.13.2",
 ]
 dev = [
+    "matplotlib>=3.10.8",
     "black>=26.1.0",
     "brokenaxes>=0.6.2",
     "ipykernel>=7.2.0",

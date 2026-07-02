@@ -23,7 +23,7 @@ endif
 
 export
 
-.PHONY: app all challenge old
+.PHONY: app all challenge study
 
 app: 
 	$(PYTHON) -m streamlit run ./app/main_scheduling.py
@@ -43,7 +43,7 @@ challenge: $(SCRIPTS_DIR)/evaluate_policies.py $(GROUND_TRUTH_FILE) $(BESS_FILE)
 	$(PYTHON) $< --data_file $(GROUND_TRUTH_FILE) --year $(YEAR) --battery_file $(BESS_FILE) --holdout_csv $(GENERATED_DATA_DIR)/holdout_days.csv --challengers_json $(CONFIG_DIR)/challengers.json --out_dir $(GENERATED_DATA_DIR)/eval/  
 
 
-old: \
+study: \
 	$(GENERATED_DATA_DIR)/perfect_foresight_optimization_$(YEAR).csv \
 	$(GENERATED_DATA_DIR)/stochastic_optimization_with_$(STOC_OP_SCENARIOS)_scenarios_$(YEAR).csv \
 	$(GENERATED_DATA_DIR)/stochastic_policy_evaluation_with_$(STOC_OP_SCENARIOS)_scenarios_$(YEAR).csv

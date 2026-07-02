@@ -1,15 +1,17 @@
-# 🔋 EsMS - Energy (Storage) Management System
+# 🔋 energy_system_optimizer
 
-*Implementation of an energy management system (EMS) for optimizing the operation of a multi-asset entity with photovoltaic (PV) generation, battery storage, and grid exchange.*
+This project offers:
+1) an **optimization engine** (*deterministic and two-stage stochastic optimization*) for the operation of systems with photovoltaic (PV) generation, batteries, and grid exchange
+2) a FastAPI service to obtain day-ahead schedules for household **battery dispatch**
 
-An EMS is useful to schedule the grid exchange (import/export) and/or battery exchange (charge/discharge) so as to minimize energy costs by making better use of battery energy storage system (BESS) and generated renewable energy. Industries or households, any entity with a BESS and PV generation can benefit from an EMS, especially when they are on **dynamic electricity tariffs**. The EMS can help reduce the net energy costs by strategically deciding when to import from the grid, cosume solar locally, discharge the battery, etc.
+## Introduction
+
+An Energy Management System (EMS) is a network of hardware and software that monitors, analyzes, and controls energy flows across connected systems. It is useful for scheduling the grid exchange (import/export) and/or battery exchange (charge/discharge) to minimize energy costs by making better use of battery energy storage system (BESS) and generated renewable energy. Industries or households, any entity with a BESS and PV generation can benefit from an EMS, especially when they are on **dynamic electricity tariffs**. *The optimization engine provided in this project is a core component of an EMS.*
 
 <!-- charging and discharging the battery based on the consumption profile and energy prices. -->
 
 ### Dynamic electricity tariffs 
 Dynamic electricity tariffs allow consumers to adjust their energy consumption based on price signals. That means the price of electricity can vary throughout the day and consumers can save money by consuming more energy when prices are low and less when prices are high (representative infographic below).
-
-<!-- (~30% compared to fixed tariffs [[luox](https://www.luox-energy.de/en/zuhause/dynamischer-stromtarif), [ostrom](https://www.ostrom.de/en/dynamic-pricing)]) -->
 
 <div style="text-align: center;">
   <img src="resources/dynamic_tariffs.png" alt="Infographic of dynamic tariffs" width="400">
@@ -18,11 +20,9 @@ Dynamic electricity tariffs allow consumers to adjust their energy consumption b
 Although such electricity contracts are common in industrial and commercial settings, they are still relatively new to households in Germany.
 > Since 1 January 2025, all electricity providers in Germany have been legally required to offer dynamic electricity tariffs. However, a 2024 survey showed that over 80% of German households still feel poorly informed about dynamic electricity tariffs [[ffe](https://www.ffe.de/en/publications/series-of-articles-dynamic-electricity-tariffs-tariff-types-advantages-and-disadvantages-technical-requirements/), [vzbv](https://www.vzbv.de/pressemitteilungen/dynamische-stromtarife-19-millionen-haushalte-im-dunkeln)].
 
-<!-- Dynamic electricity prices are often tied to spot market prices, such as those on the day-ahead market, and therefore fluctuate similarly to the spot market. -->
 
-<!-- Many countries, including Germany, offer residential customers the option to select flexible dynamic electricity contracts, where tariffs vary over time based on market conditions and supply-demand balance. At the same time, governments have encouraged the adoption of PV systems to increase renewable energy generation and self-consumption. In this context, an EMS can be used to schedule the battery energy storage system (BESS) so as to minimize energy costs by making better use of PV and other renewable generation, while accounting for the cost of importing from and exporting to the grid. The EMS can help reduce peak demand charges by strategically charging and discharging the battery based on the load profile and energy prices. -->
-### Typical EMS Pipeline
-While consumers can already reduce costs under dynamic tariffs by shifting demand to low-price hours, an EMS can optimize battery and grid schedules to achieve further savings (~15-36% savings in households [[gridx](https://www.gridx.ai/press-releases/smart-electric-heating-slashes-costs-by-up-to-60-percent-and-fires-up-heat-pump-adoption#:~:text=The%20study%20found%20that%20if,1%2C390%20euros%2C%20or%2060%20percent.), [belinus](https://www.belinus.com/post/real-time-energy-management-36-percent-savings#:~:text=Metric,environmental%20impact%20is%20real%20too.)]). An EMS generally consists of a forecasting module to predict future load, PV generation, and energy prices, and an optimization module that uses these forecasts to determine the optimal schedule. 
+### Typical EMS pipeline
+While consumers can already reduce costs under dynamic tariffs by shifting demand to low-price hours, an EMS can optimize battery and grid operations to achieve further savings (~15-36% savings in households [[gridx](https://www.gridx.ai/press-releases/smart-electric-heating-slashes-costs-by-up-to-60-percent-and-fires-up-heat-pump-adoption#:~:text=The%20study%20found%20that%20if,1%2C390%20euros%2C%20or%2060%20percent.), [belinus](https://www.belinus.com/post/real-time-energy-management-36-percent-savings#:~:text=Metric,environmental%20impact%20is%20real%20too.)]). An EMS generally consists of a forecasting module to predict future load, PV generation, and energy prices, and an optimization module that uses these forecasts to determine the optimal decisions. 
 
 Below is an example of a modern EMS implementation:
 
@@ -36,7 +36,7 @@ Below is an example of a modern EMS implementation:
 [Scenario Reduction (e.g., K-Means or Backward Reduction)]
                  │
                  ▼
-★★★★ PROJECT FOCUS [Two-Stage MILP Solver] ★★★★
+★★★★ Optimization - PROJECT FOCUS ★★★★
                  └──► Minimizes: $Cost_{Grid} + Degradation_{Battery}$
                  │
                  ▼
@@ -44,32 +44,52 @@ Below is an example of a modern EMS implementation:
 
 ```
 
-## Project Objective
+## Project Overview
 
-This project mainly focuses on the **optimization module**, with the objective to apply **scenario-based stochastic optimization** in the context of residential household energy management. This involves:
+This project provides a reusable optimization backend, which is additionally adapted for the application of battery scheduling in households. Furthermore, it includes an empirical study.
 
+### 1) esms package (optimization backend)
+The `esms` package contains the optimization engine (implemented using **Pyomo**) for energy dispatch problems with PV generation, batteries, and grid exchange. It includes:
+- ⚡ deterministic mixed-integer linear programming (MILP) optimization
+- 🎲 two-stage stochastic MILP optimization from explicit scenarios
+- support for multiple batteries, battery degradation costs, separate import/export prices, arbitrary time resolution, and optional fixed decisions
+- tested with **SCIP** (> 8.0.2) and **GLPK** solvers (both included in the Docker image)
+
+Read more → [Mathematical models](./docs/OPTIMIZATION.md)
+
+### 2) Household battery scheduling (API + frontend)
+The optimization engine is adapted for the use-case of household battery dispatch and exposed through a **FastAPI service**. Furthermore, it is paired with a **Streamlit frontend** for file upload, execution, and visualization. The API accepts battery parameters and time-series inputs, then returns day-ahead battery schedules suitable for practical use and testing. Read more → [API docs](./docs/API_README.md)
+
+Live API: https://esms-chft.onrender.com/
+
+Streamlit frontend: 
+
+![Frontend Screenshot](./resources/streamlit_frontend.png)
+
+
+
+### 3) Study scope and evaluation
+The study applies this stack to a German residential use case with dynamic tariffs. It covers: 
 - ingesting and preprocessing historical household data from open source datasets [[1](https://doi.org/10.5281/zenodo.14918474), [2](https://doi.org/10.1038/s41597-022-01156-1)], and energy prices from SMARD
-- comparing different optimization solvers (e.g., GLPK, SCIP) and using them via **Pyomo**
-- implementing **K-medoids clustering** for scenario reduction
-- implementing a **two-stage stochastic optimization** using **mixed-integer linear programming** (MILP) to optimize the *battery schedule*
-- evaluating the performance of two-stage stochastic optimization against perfect foresight
-- (later) implementing and comparing various machine learning techniques for forecasting and scenario generation
+- **K-medoids clustering** for scenario generation
+- **two-stage stochastic optimization** using generated scenarios to optimize the *battery schedule*
+- **champion-challenger strategy** to finalize the policy for stochastic scheduling
+- comparing against perfect foresight
 
-### Specific Problem Statement
+The goal is to evaluate cost savings and operational KPIs under realistic uncertainty assumptions.
 
-> This project investigates day-ahead battery dispatch scheduling for a **German residential household** with rooftop PV generation. The objective is to minimize electricity costs under dynamic tariffs derived from wholesale electricity market prices while accounting for uncertainty in future household demand and PV generation.
+#### Specific Problem Statement
 
-## Experiments and Backtesting
-<!-- # Modelling Notes -->
+> This project generates and evaluates day-ahead battery dispatch schedules for a **German residential household** with rooftop PV generation. The objective is to minimize electricity costs under dynamic tariffs while accounting for uncertainty in future household consumption (load) and PV generation.
+
+## Study, Results, & Limitations
 
 #### Data Sources
 
 The study combines two independent datasets:
 
 * **Household Load and PV Data (2019)**
-  German single-family household electricity consumption and heat pump load profiles from:
-
-  Schlemminger, M., Ohrdes, T., Schneider, E. et al. *Dataset on electrical single-family house and heat pump load profiles in Germany*. Scientific Data, 9, 56 (2022).
+  German single-family household electricity consumption and heat pump load profiles from: Schlemminger, M., Ohrdes, T., Schneider, E. et al. *Dataset on electrical single-family house and heat pump load profiles in Germany*. Scientific Data, 9, 56 (2022).
 
 * **Electricity Prices (2025)**
   German day-ahead spot market prices obtained from SMARD and transformed into synthetic household dynamic tariffs.
@@ -77,26 +97,26 @@ The study combines two independent datasets:
 The analysis assumes that household consumption and PV generation patterns observed in 2019 remain representative under 2025 market conditions.
 
 #### Strategy
-The implemented EMS strategy focuses on **day-ahead battery dispatch scheduling**: it returns the battery schedule for the next day and then follows the schedule without any adjustments during the day. If the load is more or the PV generation is less than expected, the grid import and cost would rise, and vice versa.
+The implemented EMS strategy focuses on **day-ahead battery dispatch scheduling**: obtain the battery schedule for the next day and then follow the schedule without any adjustments during the day. If the load is more or the PV generation is less than expected, the grid import and cost would rise, and vice versa.
 
-An alternative strategy is to schedule and fix the **day-ahead grid exchange** (import/export) instead. That approach typically requires adjusting the battery schedule during execution and in extreme cases, load shedding or curtailing PV generation to meet the fixed grid exchange schedule. As this is undesirable, this strategy is not implemented in this project but can be explored in future work.
+An alternative strategy is to fix the **day-ahead grid exchange** (import/export) instead. That approach typically requires adjusting the battery schedule during execution and in extreme cases, load shedding or curtailing PV generation to meet the fixed grid exchange schedule. As this is undesirable, this strategy is not implemented in this project but can be explored in future work.
 
 #### Target Variable
 
 The target variable is the *percentage cost saved* by using a battery energy storage system together with an EMS, compared to a baseline scenario without battery storage.
 
-<!-- percentage symbol has to be \\% for github with double backslash to escape the % character in markdown. -->
-$$\text{Cost Savings (\\%)} = \frac{\text{Cost}_{\text{no battery}} - \text{Cost}_{\text{with battery + EMS}}}{\text{Cost}_{\text{no battery}}} \times 100$$
+```math
+\text{Cost Savings (\%)} = \frac{\text{Cost}_{\text{no battery}} - \text{Cost}_{\text{with battery + EMS}}}{\text{Cost}_{\text{no battery}}} \times 100
+```
 
 **NOTE:** The implemented EMS strategy is not a full-fledged system, but only focuses on the day-ahead battery scheduling. *Ideally, the cost savings here should be evaluated against a baseline with a battery (e.g., a simple rule-based strategy) rather than the no-battery scenario, but this is left for future work.* 
 
 ### Workflow
 ![Workflow image](resources/data_analysis_workflow_2.png)
 
-**NOTE:** The infographic is generated with ChatGPT. While the general workflow is correct, some details may be inaccurate. See the [scripts](./scripts/), [docs](./docs/) and the [make](./Makefile) file for the exact logic, reasoning, and data used in each step.
+**NOTE:** The infographic is generated with ChatGPT. While the general workflow is correct, some details may be inaccurate. See the [scripts](./scripts/), [docs](./docs/) and the [make](./Makefile) file for the exact logic, reasoning, and data used in each step. Read more → [Workflow summary](./docs/WORKFLOW_SUMMARY.md)
 
-
-## *how much money can be saved?* (Results)
+### Results: *How much money can be saved?*
 
 - Considering a household on a dynamic electricity tariff with a PV system and a BESS, the cost savings from using an EMS depend on various factors, including the size of the PV system, the capacity of the battery, etc. Read config files ([battery](./config/sonnenBatterie10.json), [optimization](./config/stochastic_optimization_config.yaml)) and docs ([DECISIONS](./docs/DECISIONS.md)) for the parameters used in the experiments. 
 
@@ -151,35 +171,9 @@ Two scenario generation approaches are compared here: (1) generating `N` scenari
 
 ![Cost savings over time](./data/data_household_germany/generated/daily_costs.png)
 
-## Live API
-Interactive API docs: https://esms-chft.onrender.com/docs
-
-Health check: https://esms-chft.onrender.com/health
-
-The endpoint offers 2 (FastAPI) services: 1) `POST /optimize` to run deterministic optimization with load, PV, and price forecasts as input, and 2) `POST / stochastic_optimize` to run two-stage stochastic optimization from explicit scenarios. The API accepts JSON input for battery parameters and CSV files for forecasts and scenarios. Read the [API documentation](./docs/API_README.md) for details on the input format.
-
-### Included Solvers
-These solvers are included in the Docker image and can be used via the API. The user can specify which solver to use in the `config.json` file.
-- **SCIP 9.2.0** - High-performance and fast (Apache License 2.0, recommended)
-- **GLPK** - Slower but open-source (GPL License)
-
 
 ## Future work includes:
 - Implementing and comparing different forecasting methods (e.g., LSTMs, GMMs, Markov processes) for scenario generation.
 - Revenue from energy export is not considered in the current implementation, arbitrage opportunities (buy low, sell high) can be explored in future work.
-- Implementing MPC-based receding horizon control, where the optimization is repeated every 15 minutes with updated forecasts and system states, rather than following a fixed day-ahead schedule.
+- Implementing Model Predictive Control (MPC)-based receding horizon control, where the optimization is repeated every 15 minutes with updated forecasts and system states, rather than following a fixed day-ahead battery schedule.
 
-## 🔧 Development
-### Python and libraries
-
-The project is developed in Python, using libraries such as Pyomo for optimization modeling, FastAPI for web API development, pandas for data manipulation, and other packages. The project is structured in a modular way, with separate directories for optimization engines, models, API, and services.
-
-`uv` is used to manage the virtual environment and dependencies.
-Install `uv` with `pip` and then sync the environment with the dependencies specified in `pyproject.toml`:
-```bash
-> pip install --no-cache-dir uv
-# cd to the project directory
-> uv sync
-```
-
-[`Make`](./Makefile) is used to automate the data generation and analysis process, ensuring that the results are reproducible and can be easily updated when new data or parameters are available.
